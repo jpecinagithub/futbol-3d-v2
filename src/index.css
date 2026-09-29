@@ -1,0 +1,21 @@
+/* Estilos globales mínimos. La UI usa clases propias en cada pantalla. */
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0f1e;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  color: #f2f5ff;
+  user-select: none;
+}
+
+canvas { display: block; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
