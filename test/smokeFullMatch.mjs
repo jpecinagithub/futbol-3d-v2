@@ -61,9 +61,18 @@ if (!(moved > 0.1)) throw new Error("el controlado no se movió con el teclado")
 
 // ---- 2. Simulación por pasos del motor hasta los 180 s de partido ----
 const sim = await page.evaluate(async () => {
-  const { engine, stepEngine, processActions, getControlled } = window.__match;
-  const { kickoff } = await import("/src/game/engine.js");
+  const { stepEngine, processActions, getControlled } = window.__match;
+  const { createMatch, kickoff } = await import("/src/game/engine.js");
   const { resolveBindings } = await import("/src/game/input.js");
+  // La navegación y la prueba de teclado anteriores avanzan el motor vivo a
+  // distinta velocidad según la GPU del runner. Medir sobre ese estado hacía
+  // que CI consumiera otro tramo del RNG y volvía aleatoria la producción
+  // ofensiva. El partido medido parte de los mismos equipos y semilla en todos
+  // los entornos; el motor vivo se sincroniza al final para verificar la UI.
+  const liveEngine = window.__match.engine;
+  let engine = createMatch(liveEngine.homeTeam, liveEngine.awayTeam);
+  engine.difficulty = liveEngine.difficulty;
+  kickoff(engine);
   const DT = 1 / 60, input = { x: 0, z: 0 }; // controlado quieto: juega la IA
   const TARGET = 180; // 3 min de partido
   const store = window.__store.getState();
@@ -72,6 +81,7 @@ const sim = await page.evaluate(async () => {
   let minAiGoalDist = Infinity, aiFinalThirdTicks = 0;
   let lastFx = engine.passFx, steps = 0, pendingPass = null, userPendingPass = false;
   let shotPhase = 0, shotHold = 0; // 0 idle, 1 balón colocado, 2 cargando
+  let actionCheckDone = false;
   const lastShotT = {};
   // El test avanza el motor directamente, fuera del ciclo React que reproduce
   // celebración/replay. Tras contabilizar el gol reanuda como haría la UI;
@@ -87,6 +97,20 @@ const sim = await page.evaluate(async () => {
   // Reloj en tiempo real (Fase 0): 180 s de partido = 10800 pasos + margen.
   const maxSteps = 60 * 200;
   while (engine.matchTime < TARGET && steps < maxSteps) {
+    // Pase y tiro prueban processActions sobre un motor aislado. Cuando ambos
+    // han ocurrido, comienza el partido medido desde una semilla limpia; así
+    // la preparación del input no altera las decisiones ofensivas de la IA.
+    if (!actionCheckDone && userShots === 1 && userPasses === 1) {
+      engine = createMatch(liveEngine.homeTeam, liveEngine.awayTeam);
+      engine.difficulty = liveEngine.difficulty;
+      kickoff(engine);
+      actionCheckDone = true;
+      lastFx = engine.passFx;
+      pendingPass = null;
+      minAiGoalDist = Infinity;
+      aiFinalThirdTicks = 0;
+      for (const uid of Object.keys(lastShotT)) delete lastShotT[uid];
+    }
     const ctrl = getControlled(engine);
     // --- tiro con carga del usuario (vía real processActions) ---
     if (userShots === 0 && openPlay() && ctrl && !engine.frozen) {
@@ -153,6 +177,10 @@ const sim = await page.evaluate(async () => {
     }
   }
   const st = window.__store.getState().stats;
+  // Permite que el bucle React del partido vivo detecte el final y muestre la
+  // pantalla correspondiente después de cerrar esta evaluación síncrona.
+  liveEngine.matchTime = TARGET;
+  liveEngine.frozen = false;
   return {
     matchTime: engine.matchTime, steps, passes, userPasses, userShots, completed,
     aiShots, goals, storeShots: st.home.shots + st.away.shots,
