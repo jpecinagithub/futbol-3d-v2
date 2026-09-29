@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import { useMatchStore } from "../stores/useMatchStore";
+import { resolveKits } from "../data/teams";
 import { FIELD } from "../game/constants";
 
 const W = 152;
@@ -28,8 +29,8 @@ export function Radar() {
       const engine = window.__match?.engine;
       const st = useMatchStore.getState();
       if (!engine) return;
-      const home = st.getHomeTeam();
-      const away = st.getAwayTeam();
+      const kits = resolveKits(st.getHomeTeam(), st.getAwayTeam(), st.altKits);
+      const shapes = st.shapeRadar; // Fase 10: local = círculo, visitante = cuadrado
       // Fondo
       g.clearRect(0, 0, W, H);
       g.fillStyle = "rgba(10, 26, 16, 0.82)";
@@ -44,17 +45,23 @@ export function Radar() {
       g.beginPath();
       g.arc(W / 2, H / 2, 9.15 * sx, 0, Math.PI * 2);
       g.stroke();
-      // Jugadores
+      // Jugadores (color del kit real + forma por bando si está activo)
       for (const p of engine.players) {
         if (p.sentOff) continue;
-        const team = p.side === "home" ? home : away;
-        g.beginPath();
-        g.arc(px(p.x), pz(p.z), p.controlled ? 3.4 : 2.4, 0, Math.PI * 2);
-        g.fillStyle = team.colors.primary;
-        g.fill();
+        const team = p.side === "home" ? kits.home : kits.away;
+        const r = p.controlled ? 3.4 : 2.4;
+        g.fillStyle = team.primary;
         g.strokeStyle = p.controlled ? "#ffd21f" : "rgba(255,255,255,0.75)";
         g.lineWidth = p.controlled ? 2 : 1;
-        g.stroke();
+        if (shapes && p.side === "away") {
+          g.strokeRect(px(p.x) - r, pz(p.z) - r, r * 2, r * 2);
+          g.fillRect(px(p.x) - r, pz(p.z) - r, r * 2, r * 2);
+        } else {
+          g.beginPath();
+          g.arc(px(p.x), pz(p.z), r, 0, Math.PI * 2);
+          g.fill();
+          g.stroke();
+        }
       }
       // Balón destacado
       const b = engine.ball;

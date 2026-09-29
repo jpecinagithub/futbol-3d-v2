@@ -30,6 +30,7 @@ const LATERAL_CLAMP = { normal: 17, near: 26, far: 22 };
 export function BroadcastCamera({ engine }) {
   const { camera } = useThree();
   const mode = useMatchStore((s) => s.cameraMode);
+  const reduceMotion = useMatchStore((s) => s.reduceMotion);
   const target = useRef(new THREE.Vector3(0, 0, 0));
   const zoom = useRef(1);
   // Offset actual (se interpola hacia el modo activo: transición suave
@@ -73,12 +74,13 @@ export function BroadcastCamera({ engine }) {
     // Contraataque: balón en campo rival moviéndose rápido hacia la portería
     const attacking = (b.x > 12 && b.vx > 5) || (b.x < -12 && b.vx < -5);
     if (attacking) z += 0.08;
-    // "Kick" de cámara en tiros a puerta (Fase B): zoom-in breve de 0.3 s
-    if (engine.camKick > 0) z *= 1 - 0.13 * (engine.camKick / 0.3);
-    z = clamp(z, 0.82, 1.32);
+    // "Kick" de cámara en tiros a puerta (Fase B): zoom-in breve de 0.3 s.
+    // Fase 10: desactivado con reducción de movimiento.
+    if (engine.camKick > 0 && !reduceMotion) z *= 1 - 0.13 * (engine.camKick / 0.3);
+    z = reduceMotion ? clamp(z, 0.9, 1.15) : clamp(z, 0.82, 1.32);
 
-    // Suavizado (sin movimientos bruscos)
-    const kPos = 1 - Math.exp(-2.6 * dt);
+    // Suavizado (sin movimientos bruscos; más lento si se reduce movimiento)
+    const kPos = 1 - Math.exp(-(reduceMotion ? 1.6 : 2.6) * dt);
     target.current.x = damp(target.current.x, cx, kPos);
     target.current.z = damp(target.current.z, cz, kPos);
     zoom.current = damp(zoom.current, z, 1 - Math.exp(-2.2 * dt));

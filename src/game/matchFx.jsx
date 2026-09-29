@@ -78,7 +78,9 @@ export function GoalCelebration({ engine }) {
 export function GoalConfetti({ engine }) {
   const ref = useRef();
   const data = useRef(null);
-  const N = 220;
+  // Fase 10: intensidad de efectos configurable (60/220 partículas).
+  const lowFx = useMatchStore((s) => s.fxIntensity === "baja");
+  const N = lowFx ? 60 : 220;
 
   useFrame((_, rawDt) => {
     if (!ref.current) return;

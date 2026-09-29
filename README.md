@@ -97,6 +97,12 @@ remontadas), silbatos por evento y volúmenes por categoría (Pausa → Sonido).
 inercia, recepciones, tiros con estilo (colocado/potente/vaselina), barridas,
 caídas, 3 celebraciones con compañeros y confeti.
 
+**Accesibilidad (Opciones → Accesibilidad):** escala de interfaz, alto
+contraste, equipaciones de contraste si se confunden, radar con formas (no
+solo color), reducción de sacudidas de cámara, intensidad de efectos,
+vibración, tamaño visual del balón (la física no cambia) y cambio automático
+al recuperar.
+
 ---
 
 ## Controles
@@ -256,6 +262,7 @@ hay alguno (`test/shots/console-errors.log` en el humo).
 | `phaseF7.mjs` | sonido: volúmenes, funciones sin lanzar, madera, grada reactiva |
 | `phaseF8.mjs` | animación: suavizado, variantes de tiro, receive/slide/fall, celebraciones |
 | `phaseF9.mjs` | interfaz: opciones, gráficos, reinicio e historial con confirmación |
+| `phaseF10.mjs` | accesibilidad: escala, contraste, kits, sacudida, balón, auto-cambio |
 | `phaseC.mjs` | IA colectiva: dispersión, pases completados, tiros, goles, porteros, roles y fases |
 | `phaseD.mjs` | arbitraje: banda, córner, puerta, falta+amarilla, doble amarilla→expulsión, fuera de juego, penalti, libre con barrera |
 | `phaseE.mjs` | presentación: banner de gol, repetición automática saltable, estadísticas (Tab), pantalla final, revancha, sustituciones por UI |

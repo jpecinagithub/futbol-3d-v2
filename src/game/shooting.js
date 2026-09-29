@@ -196,7 +196,12 @@ export function releaseShot(engine) {
   // Fase 8: la pose varía con la potencia y el estilo (colocado/vaselina).
   p.anim.power = charge;
   p.anim.style = c.chip ? "chip" : placed ? "placed" : "normal";
-  engine.camKick = 0.3; // zoom-in breve de la broadcast
+  // Fase 10: sin sacudida de cámara si está activada la reducción.
+  try {
+    engine.camKick = useMatchStore.getState().reduceMotion ? 0 : 0.3;
+  } catch {
+    engine.camKick = 0.3;
+  }
   try { thump(0.6 + charge * 0.4); } catch { /* sin audio */ }
 }
 

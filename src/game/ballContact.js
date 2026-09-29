@@ -12,6 +12,8 @@ import { clamp, wrapAngle } from "../utils/math";
 import { clearPossession } from "./possession";
 import { dribbleTouch } from "./dribbling";
 import { isGassed } from "./stamina";
+import { userSideOf } from "./difficulty";
+import { triggerRumble } from "./feedback";
 import { registerFoul } from "./fouls";
 import { playPass, playTackle } from "../audio/audioEngine";
 // Fase D: fuera de juego (interferencia) y balón parado
@@ -96,6 +98,7 @@ function doControl(engine, p) {
     p.guardT = 0.6; // Fase 4: protección tras el primer toque (sin pokes)
     b.lastTouch = p.uid;
     b.touchCooldown = 0.12;
+    maybeAutoSwitch(engine, p);
     // Fase 8: control limpio = recepción amortiguada (no patada).
     p.anim.action = "receive";
     p.anim.timer = 0.3;
@@ -121,6 +124,21 @@ function doControl(engine, p) {
     p.anim.timer = 0.22;
   }
   try { playPass(0.3); } catch { /* sin audio */ }
+}
+
+/** Ayuda opcional (Fase 10): al recuperar, el control pasa al poseedor. */
+function maybeAutoSwitch(engine, p) {
+  try {
+    if (!engine.assistSwitch) return;
+  } catch {
+    return;
+  }
+  if (p.side !== userSideOf(engine) || p.controlled) return;
+  const cur = engine.players.find((q) => q.controlled);
+  if (cur) cur.controlled = false;
+  p.controlled = true;
+  engine.controlledUid = p.uid;
+  engine.charge = null;
 }
 
 /** Bloqueo corporal: el balón rebota suave y no atraviesa al jugador. */
@@ -203,9 +221,11 @@ function resolveTackle(engine, t) {
   b.lastTouch = t.uid;
   b.touchCooldown = 0.15;
   engine.passTarget = null;
+  maybeAutoSwitch(engine, t);
   t.anim.action = "kick";
   t.anim.timer = 0.25;
   try { playTackle(); } catch { /* sin audio */ }
+  try { triggerRumble(70, 0.7); } catch { /* sin háptica */ }
 }
 
 export function ballPlayerContact(engine, dt) {

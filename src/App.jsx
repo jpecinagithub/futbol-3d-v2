@@ -25,6 +25,20 @@ const IN_HUD = ["playing", "paused", "goal", "replay"];
 export default function App() {
   const phase = useMatchStore((s) => s.phase);
   const matchId = useMatchStore((s) => s.matchId);
+  const uiScale = useMatchStore((s) => s.uiScale);
+  const highContrast = useMatchStore((s) => s.highContrast);
+
+  // Fase 10: escala de interfaz (zoom estándar) y clase de alto contraste.
+  useEffect(() => {
+    try {
+      document.getElementById("root").style.zoom = String(uiScale);
+    } catch { /* nada */ }
+  }, [uiScale]);
+  useEffect(() => {
+    try {
+      document.getElementById("root").classList.toggle("hc", !!highContrast);
+    } catch { /* nada */ }
+  }, [highContrast]);
 
   // Tab: overlay de estadísticas durante el partido o la pausa.
   // Z: cicla cámara TV → cercana → lejos. R: radar. H: halo del balón.

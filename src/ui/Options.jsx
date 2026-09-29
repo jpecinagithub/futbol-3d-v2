@@ -27,6 +27,20 @@ export function OptionsPanel() {
   const fpsLimit = useMatchStore((s) => s.fpsLimit);
   const setFpsLimit = useMatchStore((s) => s.setFpsLimit);
   const drillId = useMatchStore((s) => s.drillId);
+  // Fase 10: accesibilidad.
+  const uiScale = useMatchStore((s) => s.uiScale);
+  const setUiScale = useMatchStore((s) => s.setUiScale);
+  const highContrast = useMatchStore((s) => s.highContrast);
+  const altKits = useMatchStore((s) => s.altKits);
+  const shapeRadar = useMatchStore((s) => s.shapeRadar);
+  const reduceMotion = useMatchStore((s) => s.reduceMotion);
+  const fxIntensity = useMatchStore((s) => s.fxIntensity);
+  const setFxIntensity = useMatchStore((s) => s.setFxIntensity);
+  const vibration = useMatchStore((s) => s.vibration);
+  const ballScale = useMatchStore((s) => s.ballScale);
+  const setBallScale = useMatchStore((s) => s.setBallScale);
+  const assistSwitch = useMatchStore((s) => s.assistSwitch);
+  const toggleA11y = useMatchStore((s) => s.toggleA11y);
 
   return (
     <div className="controls-table">
@@ -108,6 +122,59 @@ export function OptionsPanel() {
       <p className="controls-note">
         Los gráficos se aplican al instante sin perder el partido (DPR {GFX_DPR[gfxQuality].join("–")}).
       </p>
+
+      <h3>ACCESIBILIDAD</h3>
+      <div className="controls-row">
+        <span className="controls-desc">Tamaño de la interfaz</span>
+        <span>
+          {[0.85, 1, 1.15, 1.3].map((v) => (
+            <span key={v}>
+              <button className={`controls-key${uiScale === v ? " active-btn" : ""}`} onClick={() => setUiScale(v)}>{Math.round(v * 100)}</button>{" "}
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Alto contraste</span>
+        <button className="controls-key" onClick={() => toggleA11y("highContrast")}>{highContrast ? "Sí" : "No"}</button>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Equipaciones de contraste (si se confunden)</span>
+        <button className="controls-key" onClick={() => toggleA11y("altKits")}>{altKits ? "Sí" : "No"}</button>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Radar con formas (no solo color)</span>
+        <button className="controls-key" onClick={() => toggleA11y("shapeRadar")}>{shapeRadar ? "Sí" : "No"}</button>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Reducir movimientos de cámara</span>
+        <button className="controls-key" onClick={() => toggleA11y("reduceMotion")}>{reduceMotion ? "Sí" : "No"}</button>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Intensidad de efectos</span>
+        <span>
+          <button className={`controls-key${fxIntensity === "baja" ? " active-btn" : ""}`} onClick={() => setFxIntensity("baja")}>Baja</button>{" "}
+          <button className={`controls-key${fxIntensity === "alta" ? " active-btn" : ""}`} onClick={() => setFxIntensity("alta")}>Alta</button>
+        </span>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Vibración (mando/móvil)</span>
+        <button className="controls-key" onClick={() => toggleA11y("vibration")}>{vibration ? "Sí" : "No"}</button>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Tamaño visual del balón</span>
+        <span>
+          {[1, 1.25, 1.5].map((v) => (
+            <span key={v}>
+              <button className={`controls-key${ballScale === v ? " active-btn" : ""}`} onClick={() => setBallScale(v)}>{v}x</button>{" "}
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className="controls-row">
+        <span className="controls-desc">Cambio automático al recuperar</span>
+        <button className="controls-key" onClick={() => toggleA11y("assistSwitch")}>{assistSwitch ? "Sí" : "No"}</button>
+      </div>
 
       <h3>SONIDO</h3>
       <SoundPanel />

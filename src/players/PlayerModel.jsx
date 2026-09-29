@@ -7,6 +7,8 @@ import { useRef, useMemo, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { createAnimState, posePlayer } from "../animation/animator";
+import { useMatchStore } from "../stores/useMatchStore";
+import { resolveKits } from "../data/teams";
 
 // --- Geometrías base compartidas (una sola instancia para los 22 jugadores) ---
 const GEO = {
@@ -88,9 +90,15 @@ export function PlayerModel({ player, teamId }) {
   }, [player.uid]);
 
   const isGK = player.role === "GK";
-  const shirt = isGK ? "#20242c" : player.teamColors.primary;
-  const shorts = isGK ? "#20242c" : player.teamColors.shorts;
-  const socks = isGK ? "#c8c8c8" : player.teamColors.socks;
+  // Fase 10: equipación de contraste si los kits se confunden y está activo.
+  const altKits = useMatchStore((s) => s.altKits);
+  const homeTeam = useMatchStore((s) => s.getHomeTeam());
+  const awayTeam = useMatchStore((s) => s.getAwayTeam());
+  const kits = resolveKits(homeTeam, awayTeam, altKits);
+  const worn = player.side === "home" ? kits.home : kits.away;
+  const shirt = isGK ? "#20242c" : worn.primary;
+  const shorts = isGK ? "#20242c" : worn.shorts;
+  const socks = isGK ? "#c8c8c8" : worn.socks;
   const numTex = useMemo(
     () => numberTexture(teamId, player.data.number, shirt),
     [teamId, player.data.number, shirt]

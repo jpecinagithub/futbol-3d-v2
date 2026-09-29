@@ -104,6 +104,7 @@ export function createMatch(homeTeam, awayTeam) {
     // ---- Fase 5 ----
     difficulty: "normal", // fácil|normal|difícil (la sincroniza Match desde el store)
     training: false,     // Fase 6: sin decisiones de IA (modo entrenamiento)
+    assistSwitch: false, // Fase 10: cambio automático al recuperar (lo sincroniza Match)
   };
   initDeadBall(engine); // Fase D: máquina de balón parado + estadísticas
 

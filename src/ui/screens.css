@@ -701,3 +701,40 @@ button.controls-key.capturing {
 }
 .options-sheet .controls-table h3 { margin-top: 14px; }
 button.controls-key.active-btn { border-color: #ffd21f; color: #ffd21f; }
+
+/* Alto contraste (Fase 10): fondos opacos, texto y bordes reforzados */
+.hc .screen { background: #000; }
+.hc .hud .scoreboard,
+.hc .camera-badge,
+.hc .input-badge,
+.hc .hud-hint,
+.hc .radar,
+.hc .player-label,
+.hc .stats-overlay,
+.hc .overlay,
+.hc .drill-card,
+.hc .notice-toast,
+.hc .deadball-indicator {
+  background: #000;
+  border-width: 2px;
+  border-color: #fff;
+  color: #fff;
+}
+.hc .game-title,
+.hc .controls-table h3,
+.hc .final-h3,
+.hc .drill-title,
+.hc .camera-badge b,
+.hc .radar-hint b,
+.hc .player-label {
+  color: #ffd21f;
+}
+.hc .btn { border-width: 2px; }
+.hc .controls-key { color: #fff; border-color: #fff; }
+.hc .controls-desc,
+.hc .hint,
+.hc .mp-bench,
+.hc .drill-hint,
+.hc .drill-item-hint {
+  color: #e8e8e8;
+}

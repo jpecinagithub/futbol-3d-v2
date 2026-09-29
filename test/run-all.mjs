@@ -34,7 +34,7 @@ await new Promise((resolve, reject) => {
 console.log(`[test] servidor en ${BASE_URL}`);
 
 const suites = ["test/smoke.mjs"];
-if (FULL) suites.push("test/phaseF1.mjs", "test/phaseF2.mjs", "test/phaseF3.mjs", "test/phaseF4.mjs", "test/phaseF5.mjs", "test/phaseF6.mjs", "test/phaseF7.mjs", "test/phaseF8.mjs", "test/phaseF9.mjs", "test/phaseC.mjs", "test/phaseD.mjs", "test/phaseE.mjs", "test/smokeFullMatch.mjs");
+if (FULL) suites.push("test/phaseF1.mjs", "test/phaseF2.mjs", "test/phaseF3.mjs", "test/phaseF4.mjs", "test/phaseF5.mjs", "test/phaseF6.mjs", "test/phaseF7.mjs", "test/phaseF8.mjs", "test/phaseF9.mjs", "test/phaseF10.mjs", "test/phaseC.mjs", "test/phaseD.mjs", "test/phaseE.mjs", "test/smokeFullMatch.mjs");
 
 let code = 0;
 try {

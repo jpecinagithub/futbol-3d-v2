@@ -52,16 +52,19 @@ export function Ball({ engine }) {
   const elev = useRef();
   const halo = useRef();
   const ballHalo = useMatchStore((s) => s.ballHalo);
+  // Fase 10: tamaño visual configurable (la física NO cambia: mismo radio).
+  const ballScale = useMatchStore((s) => s.ballScale);
   const tex = useMemo(() => getBallTexture(), []);
 
   useFrame(({ clock }) => {
     const b = engine.ball;
     if (!ref.current) return;
     ref.current.position.set(b.x, b.y, b.z);
+    ref.current.scale.setScalar(ballScale);
     // Fase 1: sombra blob en el suelo (siempre visible, se atenúa en alto).
     if (shadow.current) {
       const h = Math.max(0, b.y - BALL.radius);
-      const s = 1 + h * 0.12;
+      const s = (1 + h * 0.12) * ballScale;
       shadow.current.position.set(b.x, 0.02, b.z);
       shadow.current.scale.set(s, s, 1);
       shadow.current.material.opacity = Math.max(0.12, 0.42 - h * 0.05);

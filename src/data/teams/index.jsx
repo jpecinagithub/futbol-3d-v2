@@ -81,3 +81,36 @@ export function TeamCrest({ crest, size = 64 }) {
       );
   }
 }
+
+// ---------- Equipaciones de contraste (Fase 10) ----------
+// Si los primarios se parecen y el ajuste está activo, el visitante viste
+// un alternativo neutro de alto contraste (blanco/negro).
+export const ALT_KIT = {
+  primary: "#f2f2f2",
+  secondary: "#141414",
+  shorts: "#141414",
+  socks: "#f2f2f2",
+};
+
+function hexRgb(hex) {
+  const h = String(hex || "#888888").replace("#", "");
+  const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(v.slice(0, 6), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** ¿Se confunden los dos primarios? (distancia euclídea < umbral). */
+export function kitsClash(a, b) {
+  const [r1, g1, b1] = hexRgb(a);
+  const [r2, g2, b2] = hexRgb(b);
+  return Math.hypot(r1 - r2, g1 - g2, b1 - b2) < 110;
+}
+
+/** Colores a vestir por cada lado (respeta porteros: siempre oscuro). */
+export function resolveKits(homeTeam, awayTeam, altOn, isGK = false) {
+  if (isGK) return null; // el portero mantiene su kit oscuro
+  if (altOn && kitsClash(homeTeam.colors.primary, awayTeam.colors.primary)) {
+    return { home: homeTeam.colors, away: ALT_KIT, clashed: true };
+  }
+  return { home: homeTeam.colors, away: awayTeam.colors, clashed: false };
+}

@@ -24,6 +24,7 @@ import { ReplayPlayer } from "../replay/ReplayPlayer";
 import { TrainingScript, TrainingMarker } from "../training/Training";
 import { recordTick } from "../replay/goalReplay";
 import { startCrowd, stopCrowd, playWhistle, playCrowdGoal, playNet, setCrowdExcitement, setVolumes, crowdOoh } from "../audio/audioEngine";
+import { triggerRumble } from "./feedback";
 
 // ---------- Bucle de simulación ----------
 function Simulation({ engine }) {
@@ -86,6 +87,8 @@ function Simulation({ engine }) {
     engine.inputSource = fin.source;
     // Fase 5: la dificultad vive y se puede cambiar en mitad del partido.
     engine.difficulty = st.difficulty || "normal";
+    // Fase 10: cambio automático al recuperar (también en directo).
+    engine.assistSwitch = !!st.assistSwitch;
     processActions(engine, fin, dt);
 
     acc.current += dt;
@@ -118,6 +121,7 @@ function Simulation({ engine }) {
           playCrowdGoal(side, before < 0);
           playNet();
           playWhistle("gol");
+          try { triggerRumble(120, 0.8); } catch { /* sin háptica */ }
           heatRef.current = 1; // el ambiente se viene arriba con el gol
         },
       });
@@ -202,6 +206,7 @@ function Simulation({ engine }) {
 // fija abajo a la derecha (nombre + dorsal, stamina y potencia de tiro).
 function ControlledMarker({ engine }) {
   const group = useRef();
+  const shapeRadar = useMatchStore((s) => s.shapeRadar);
   useFrame(() => {
     if (!group.current) return;
     const c = getControlled(engine);
@@ -213,6 +218,13 @@ function ControlledMarker({ engine }) {
         <ringGeometry args={[0.5, 0.68, 32]} />
         <meshBasicMaterial color="#ffd21f" transparent opacity={0.9} side={THREE.DoubleSide} />
       </mesh>
+      {/* Fase 10: segundo anillo (forma, no solo color) para el controlado. */}
+      {shapeRadar && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.78, 0.86, 4, 1]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      )}
     </group>
   );
 }

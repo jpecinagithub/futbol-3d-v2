@@ -90,6 +90,20 @@ export const useMatchStore = create((set, get) => ({
   volCrowd: Number(loadPref("f3d.volCrowd", "0.8")) || 0.8,
   volFx: Number(loadPref("f3d.volFx", "0.9")) || 0.9,
   volUi: Number(loadPref("f3d.volUi", "0.9")) || 0.9,
+  // ---- accesibilidad (Fase 10): estado inicial persistido ----
+  uiScale: [0.85, 1, 1.15, 1.3].includes(Number(loadPref("f3d.uiScale", "1")))
+    ? Number(loadPref("f3d.uiScale", "1"))
+    : 1,
+  highContrast: loadPref("f3d.hc", "0") === "1",
+  altKits: loadPref("f3d.altKits", "0") === "1",
+  shapeRadar: loadPref("f3d.shapeRadar", "1") !== "0", // formas además de color
+  reduceMotion: loadPref("f3d.reduceMotion", "0") === "1",
+  fxIntensity: loadPref("f3d.fxIntensity", "alta") === "baja" ? "baja" : "alta",
+  vibration: loadPref("f3d.vib", "1") !== "0",
+  ballScale: [1, 1.25, 1.5].includes(Number(loadPref("f3d.ballScale", "1")))
+    ? Number(loadPref("f3d.ballScale", "1"))
+    : 1,
+  assistSwitch: loadPref("f3d.assistSwitch", "0") === "1",
   // ---- gráficos (Fase 9) ----
   gfxQuality: ["baja", "media", "alta"].includes(loadPref("f3d.gfx", "alta"))
     ? loadPref("f3d.gfx", "alta")
@@ -269,7 +283,32 @@ export const useMatchStore = create((set, get) => ({
     const next = v === 30 ? 30 : 60;
     savePref("f3d.fps", String(next));
     set({ fpsLimit: next });
-  },  toggleStats: () =>
+  },
+  // ---- accesibilidad (Fase 10): setters ----
+  setUiScale: (v) => {
+    const next = [0.85, 1, 1.15, 1.3].includes(Number(v)) ? Number(v) : 1;
+    savePref(A11Y_KEYS.uiScale, String(next));
+    set({ uiScale: next });
+  },
+  /** Alterna un ajuste booleano de accesibilidad (persistido). */
+  toggleA11y: (key) =>
+    set((s) => {
+      if (!A11Y_BOOL.has(key)) return {};
+      const next = !s[key];
+      savePref(A11Y_KEYS[key], next ? "1" : "0");
+      return { [key]: next };
+    }),
+  setFxIntensity: (v) => {
+    const next = v === "baja" ? "baja" : "alta";
+    savePref(A11Y_KEYS.fxIntensity, next);
+    set({ fxIntensity: next });
+  },
+  setBallScale: (v) => {
+    const next = [1, 1.25, 1.5].includes(Number(v)) ? Number(v) : 1;
+    savePref(A11Y_KEYS.ballScale, String(next));
+    set({ ballScale: next });
+  },
+  toggleStats: () =>
     set((s) =>
       s.phase === "playing" || s.phase === "paused"
         ? { showStats: !s.showStats }
@@ -370,3 +409,20 @@ export const useMatchStore = create((set, get) => ({
 
 /** DPR por preset de calidad (Fase 9). */
 export const GFX_DPR = { baja: [1, 1], media: [1, 1.25], alta: [1, 1.75] };
+
+/** Setters genéricos de accesibilidad (Fase 10): clave de store + localStorage. */
+const A11Y_KEYS = {
+  uiScale: "f3d.uiScale",
+  highContrast: "f3d.hc",
+  altKits: "f3d.altKits",
+  shapeRadar: "f3d.shapeRadar",
+  reduceMotion: "f3d.reduceMotion",
+  fxIntensity: "f3d.fxIntensity",
+  vibration: "f3d.vib",
+  ballScale: "f3d.ballScale",
+  assistSwitch: "f3d.assistSwitch",
+};
+/** Subconjunto booleano (los únicos que admite toggleA11y). */
+const A11Y_BOOL = new Set([
+  "highContrast", "altKits", "shapeRadar", "reduceMotion", "vibration", "assistSwitch",
+]);
