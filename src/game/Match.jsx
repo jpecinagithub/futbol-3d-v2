@@ -591,7 +591,7 @@ export function Match() {
       // Fase 9: la calidad se aplica remontando SOLO el Canvas (el motor
       // mutable sobrevive: no se pierde ni el partido ni la repetición).
       key={`gfx-${gfxQuality}-${shadowsOn ? "sh" : "nosh"}-${fpsLimit}`}
-      shadows={shadowsOn}
+      shadows={shadowsOn ? { enabled: true, type: THREE.PCFShadowMap } : false}
       dpr={GFX_DPR[gfxQuality] || GFX_DPR.alta}
       frameloop={fpsLimit === 30 ? "never" : "always"}
       camera={{ fov: 50, near: 0.5, far: 600, position: [0, 31, 47] }}
