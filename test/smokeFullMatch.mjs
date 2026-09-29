@@ -62,16 +62,22 @@ if (!(moved > 0.1)) throw new Error("el controlado no se movió con el teclado")
 // ---- 2. Simulación por pasos del motor hasta los 180 s de partido ----
 const sim = await page.evaluate(async () => {
   const { engine, stepEngine, processActions, getControlled } = window.__match;
+  const { kickoff } = await import("/src/game/engine.js");
   const { resolveBindings } = await import("/src/game/input.js");
   const DT = 1 / 60, input = { x: 0, z: 0 }; // controlado quieto: juega la IA
   const TARGET = 180; // 3 min de partido
   const store = window.__store.getState();
   const shotsBefore = store.stats.home.shots + store.stats.away.shots;
   let passes = 0, userPasses = 0, userShots = 0, completed = 0, aiShots = 0, goals = 0;
+  let minAiGoalDist = Infinity, aiFinalThirdTicks = 0;
   let lastFx = engine.passFx, steps = 0, pendingPass = null, userPendingPass = false;
   let shotPhase = 0, shotHold = 0; // 0 idle, 1 balón colocado, 2 cargando
   const lastShotT = {};
-  const ev = { onGoal: () => { goals++; } };
+  // El test avanza el motor directamente, fuera del ciclo React que reproduce
+  // celebración/replay. Tras contabilizar el gol reanuda como haría la UI;
+  // de otro modo el primer gol congelaría el reloj y un partido ofensivo
+  // fallaría precisamente por haber marcado.
+  const ev = { onGoal: () => { goals++; kickoff(engine); } };
   const fin = { move: { x: 0, z: 0 }, downCodes: {}, sprint: false, sprintPressed: false,
     dribbleMod: false, helper: false, shootHeld: false, events: [],
     // Fase 11: processActions exige la entrada con forma completa (Fase 3+).
@@ -130,6 +136,12 @@ const sim = await page.evaluate(async () => {
     }
     let poss = null;
     for (const p of engine.players) if (p.hasBall) { poss = p; break; }
+    if (poss && !poss.controlled) {
+      const gx = (poss.isHome ? 1 : -1) * 52.5;
+      const dg = Math.hypot(gx - poss.x, poss.z);
+      minAiGoalDist = Math.min(minAiGoalDist, dg);
+      if (dg < 30) aiFinalThirdTicks++;
+    }
     if (pendingPass && poss && poss.side === pendingPass.side && poss.role !== "GK"
         && engine.time < pendingPass.until) { completed++; pendingPass = null; }
     if (pendingPass && engine.time >= pendingPass.until) pendingPass = null;
@@ -144,6 +156,9 @@ const sim = await page.evaluate(async () => {
   return {
     matchTime: engine.matchTime, steps, passes, userPasses, userShots, completed,
     aiShots, goals, storeShots: st.home.shots + st.away.shots,
+    recordedAiShots: Math.max(0, st.home.shots + st.away.shots - shotsBefore - userShots),
+    minAiGoalDist: Number.isFinite(minAiGoalDist) ? +minAiGoalDist.toFixed(2) : null,
+    aiFinalThirdS: +(aiFinalThirdTicks / 60).toFixed(2),
     possession: { home: +st.home.possession.toFixed(0), away: +st.away.possession.toFixed(0) },
   };
 });
@@ -152,6 +167,12 @@ if (sim.matchTime < 180) throw new Error("el reloj no llegó a 180 s");
 if (sim.passes < 1) throw new Error("la IA no dio ningún pase en 3 min: " + sim.passes);
 if (sim.userPasses < 1) throw new Error("el pase del usuario no se ejecutó");
 if (sim.userShots < 1) throw new Error("el tiro con carga del usuario no se ejecutó");
+if (sim.aiShots < 1 || sim.recordedAiShots < 1) {
+  throw new Error(
+    `la IA no remató en 3 min (decisiones=${sim.aiShots}, contabilizados=${sim.recordedAiShots}, ` +
+    `distancia mínima=${sim.minAiGoalDist}, zona final=${sim.aiFinalThirdS}s)`
+  );
+}
 
 // ---- 3. El partido termina: la UI detecta el fin y muestra la pantalla final ----
 await page.waitForFunction(() => window.__match?.phase === "fulltime", null, { timeout: 60000 });

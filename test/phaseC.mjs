@@ -51,11 +51,15 @@ const res = await page.evaluate(async () => {
     let passes = 0, lastFx = engine.passFx;
     let shots = 0;
     const prevState = {};
-    const lastShotT = {};
+    // Puede ejecutarse más de una simulación sobre el mismo motor; partir del
+    // sello actual evita atribuir al baseline tiros de la corrida anterior.
+    const lastShotT = Object.fromEntries(
+      engine.players.map((p) => [p.uid, p.ai?.lastShotT ?? -1])
+    );
     let completed = 0;
     let pendingPass = null; // {until, side}
     let goals = 0;
-    let minCarrierGoalDist = Infinity, carrierShotZoneTicks = 0;
+    let minCarrierGoalDist = Infinity, minCarrierGoalPoint = null, carrierShotZoneTicks = 0;
     let needKickoff = false;
     let dispSum = 0, dispN = 0;
     let crowdSum = 0, crowdN = 0, crowdMax = 0;
@@ -82,8 +86,11 @@ const res = await page.evaluate(async () => {
       if (poss) {
         const gx = (poss.isHome ? 1 : -1) * 52.5;
         const dg = Math.hypot(gx - poss.x, poss.z);
-        minCarrierGoalDist = Math.min(minCarrierGoalDist, dg);
-        if (dg < 28 && Math.abs(poss.z) < 20) carrierShotZoneTicks++;
+        if (dg < minCarrierGoalDist) {
+          minCarrierGoalDist = dg;
+          minCarrierGoalPoint = { x: +poss.x.toFixed(2), z: +poss.z.toFixed(2) };
+        }
+        if (dg < 30.5 && Math.abs(poss.z) < 18) carrierShotZoneTicks++;
       }
       if (pendingPass && poss && poss.side === pendingPass.side && poss.role !== "GK"
           && engine.time < pendingPass.until) {
@@ -160,6 +167,7 @@ const res = await page.evaluate(async () => {
     return {
       seconds, passes, completed, shots, goals,
       minCarrierGoalDist: Number.isFinite(minCarrierGoalDist) ? +minCarrierGoalDist.toFixed(2) : null,
+      minCarrierGoalPoint,
       carrierShotZoneS: +(carrierShotZoneTicks / 60).toFixed(2),
       disp: dispN ? +(dispSum / dispN).toFixed(2) : 0,
       crowd: crowdN ? +(crowdSum / crowdN).toFixed(2) : 0,
@@ -174,7 +182,9 @@ const res = await page.evaluate(async () => {
     };
   }
 
-  out.main = runSim(90, false);
+  // Un partido corto completo: la producción ofensiva se evalúa sobre una
+  // ventana representativa y no sobre una única posesión de 90 segundos.
+  out.main = runSim(180, false);
   await new Promise((r) => setTimeout(r, 0));
   out.baseline = runSim(30, true); // todos al balón
 

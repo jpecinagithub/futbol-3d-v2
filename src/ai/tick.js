@@ -268,7 +268,13 @@ function scoreMate(engine, p, m, atk, d) {
     const cz = p.z + vz * t;
     if (Math.hypot(o.x - cx, o.z - cz) < 2) lane++;
   }
-  let s = desmarque * 0.55 + prog * 0.1 - lane * 1.7 - d * 0.06;
+  // La progresión debe pesar de verdad. Con 0,1, un compañero muy libre
+  // diez metros por detrás puntuaba mejor que una línea de pase ofensiva y
+  // la posesión acababa circulando en horizontal hasta perderse. Premiamos
+  // el pase hacia delante y penalizamos con más claridad el pase hacia atrás,
+  // sin prohibirlo cuando es la única salida limpia.
+  const progression = prog >= 0 ? prog * 0.2 : prog * 0.28;
+  let s = desmarque * 0.55 + progression - lane * 1.7 - d * 0.06;
   if (m.ai && m.ai.state === ST.ATTACKING) s += 1.0; // premio a la ruptura
   if (m.controlled) {
     if (d > 14) return -Infinity; // al humano solo si es claramente la mejor y está cerca
@@ -294,10 +300,10 @@ function bestPassOption(engine, p, atk) {
 }
 
 function tryShootAI(engine, p, time, atk, gx, distGoal, pressure) {
-  // Acepta media distancia realista: la IA colectiva suele progresar hasta
-  // 24–26 m y antes el corte estricto en 24 m dejaba ataques completos sin
-  // un solo remate.
-  const zoneOk = distGoal < 13 || (distGoal < 28 && Math.abs(p.z) < 20);
+  // Acepta media distancia realista: la IA colectiva suele encontrar su
+  // primera ventana alrededor de 28–30 m. Exigimos además un ángulo razonable
+  // para que no pruebe disparos remotos desde la banda.
+  const zoneOk = distGoal < 13 || (distGoal < 30.5 && Math.abs(p.z) < 18);
   if (!zoneOk) return false;
   if (time - p.ai.lastShotT < 3) return false;
   const q = p.data.shooting / 100;
@@ -305,7 +311,8 @@ function tryShootAI(engine, p, time, atk, gx, distGoal, pressure) {
   if (pressure < 1.5) prob *= 1.1;
   else if (pressure < 3) prob *= 0.6;
   else prob *= 0.35;
-  if (distGoal < 26 && Math.abs(p.z) < 18) prob = Math.max(prob, 0.5);
+  if (distGoal < 30.5 && Math.abs(p.z) < 16) prob = Math.max(prob, 0.45);
+  if (distGoal < 26 && Math.abs(p.z) < 18) prob = Math.max(prob, 0.55);
   if (distGoal < 11) prob += 0.3;
   // Cerca de portería, tirar es casi obligatorio (antes prob*0.35 hacía que
   // el portador dudara eternamente en zona de remate).
@@ -462,6 +469,15 @@ function carrierBrain(p, ctx, tai, time, _S) {
     const l = Math.hypot(dx, dz) || 1;
     dx /= l;
     dz /= l;
+    // La repulsión del defensor no puede convertir la conducción ofensiva
+    // en una retirada. Conserva una componente mínima hacia portería y deja
+    // que el componente lateral resuelva el regate.
+    if (atk * dx < 0.32) {
+      dx = atk * 0.32;
+      const fl = Math.hypot(dx, dz) || 1;
+      dx /= fl;
+      dz /= fl;
+    }
   }
   const sp = 0.5 + (p.data.dribbling / 100) * 0.26; // máx. 0.76: toques controlados
   setGoal(p, p.x + dx * 7, p.z + dz * 7, Math.min(sp, 0.78));
@@ -506,16 +522,23 @@ function attackDuty(p, ctx, tai, time, S) {
     return;
   }
 
-  // Los 2–3 más cercanos al poseedor forman triángulos de pase.
-  if (S.nearRank >= 0 && S.nearRank < 3 && carrier) {
+  // Los 2–3 más cercanos al poseedor forman triángulos de pase. Al menos un
+  // vértice se ofrece por delante: antes los tres slots quedaban detrás del
+  // balón y anulaban la progresión incluso cuando había espacio.
+  // En el último tercio prevalecen las funciones específicas de cada rol:
+  // el punta ocupa el área, los extremos estiran y los medios llegan. Si el
+  // apoyo genérico siguiera activo allí, esos tres jugadores se quedarían
+  // orbitando al extremo y nunca habría un rematador para el centro.
+  if (aBall <= 28 && S.nearRank >= 0 && S.nearRank < 3 && carrier) {
     const slots = [
-      { da: -6, dz: 8 },
+      { da: 7, dz: 7 },
       { da: -6, dz: -8 },
       { da: -11, dz: 0 },
     ];
     const s = slots[S.nearRank];
     ai.state = ST.SUPPORT;
-    const gx = carrier.x + atk * s.da;
+    const rawX = carrier.x + atk * s.da;
+    const gx = s.da > 0 ? holdOffsideLine(engine, p, rawX) : rawX;
     const gz = carrier.z + s.dz;
     setBaseGoal(p, gx * 0.78 + tac.x * 0.22, gz * 0.78 + tac.z * 0.22, 0.7);
     return;

@@ -165,9 +165,10 @@ try {
     engine.passTarget = null;
   });
   await page.keyboard.press("t");
+  // La aparición del target prueba el pase. Puede desaparecer inmediatamente
+  // después si el receptor lo controla; volver a consultarlo introducía una
+  // carrera falsa con una IA más rápida en la progresión.
   await page.waitForFunction(() => !!window.__match.engine.passTarget, null, { timeout: 30000 });
-  const remapPass = await ev(() => !!window.__match.engine.passTarget);
-  if (!remapPass) throw new Error("la tecla reasignada (T) no pasa");
   console.log("reasignación: OK");
   await ev(() => window.__store.getState().resetBindings());
 
