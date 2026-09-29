@@ -67,7 +67,12 @@ npm run preview  # sirve la versión compilada en local
 
 **Durante el partido:**
 
-- **Pausa** (`Esc`): pestañas de *Controles*, *Estadísticas* y *Cambios*.
+- **Pausa** (`Esc`): pestañas de *Controles*, *Sonido*, *Opciones* (cámara,
+  esquema, dificultad, gráficos), *Historial*, *Estadísticas* y *Cambios*.
+- **Reiniciar** el partido o **salir al menú** piden confirmación (dos clics).
+- **Opciones** (también en el menú principal): todo se guarda en el
+  navegador (cámara, radar, halo, esquema y teclas, mando, dificultad,
+  volúmenes, gráficos).
 - **Cambios**: hasta 5 sustituciones por equipo (titular ↔ suplente) desde la
   pausa. Los expulsados y lesionados no pueden volver.
 - **Balón parado**: el HUD te indica el tipo (saque de banda, córner, saque
@@ -250,6 +255,7 @@ hay alguno (`test/shots/console-errors.log` en el humo).
 | `phaseF6.mjs` | entrenamiento: 7 drills con condiciones reales, repetir/saltar/salir |
 | `phaseF7.mjs` | sonido: volúmenes, funciones sin lanzar, madera, grada reactiva |
 | `phaseF8.mjs` | animación: suavizado, variantes de tiro, receive/slide/fall, celebraciones |
+| `phaseF9.mjs` | interfaz: opciones, gráficos, reinicio e historial con confirmación |
 | `phaseC.mjs` | IA colectiva: dispersión, pases completados, tiros, goles, porteros, roles y fases |
 | `phaseD.mjs` | arbitraje: banda, córner, puerta, falta+amarilla, doble amarilla→expulsión, fuera de juego, penalti, libre con barrera |
 | `phaseE.mjs` | presentación: banner de gol, repetición automática saltable, estadísticas (Tab), pantalla final, revancha, sustituciones por UI |

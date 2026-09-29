@@ -90,6 +90,14 @@ export const useMatchStore = create((set, get) => ({
   volCrowd: Number(loadPref("f3d.volCrowd", "0.8")) || 0.8,
   volFx: Number(loadPref("f3d.volFx", "0.9")) || 0.9,
   volUi: Number(loadPref("f3d.volUi", "0.9")) || 0.9,
+  // ---- gráficos (Fase 9) ----
+  gfxQuality: ["baja", "media", "alta"].includes(loadPref("f3d.gfx", "alta"))
+    ? loadPref("f3d.gfx", "alta")
+    : "alta",
+  shadowsOn: loadPref("f3d.shadows", "1") !== "0",
+  fpsLimit: [30, 60].includes(Number(loadPref("f3d.fps", "60")))
+    ? Number(loadPref("f3d.fps", "60"))
+    : 60,
   stats: initialStats(), // faltas, tarjetas, córners, fueras de juego, penaltis, posesión, tiros
   subs: { home: 0, away: 0 }, // sustituciones usadas (máx. 5 por equipo)
 
@@ -242,7 +250,26 @@ export const useMatchStore = create((set, get) => ({
     savePref(`f3d.${key}`, String(next));
     set({ [key]: next });
   },
-  toggleStats: () =>
+  // ---- gráficos (Fase 9) ----
+  /** Preset de calidad (baja|media|alta), persistido. */
+  setGfxQuality: (q) => {
+    const next = ["baja", "media", "alta"].includes(q) ? q : "alta";
+    savePref("f3d.gfx", next);
+    set({ gfxQuality: next });
+  },
+  /** Sombras sí/no (persistido; se aplica al instante). */
+  toggleShadows: () =>
+    set((s) => {
+      const next = !s.shadowsOn;
+      savePref("f3d.shadows", next ? "1" : "0");
+      return { shadowsOn: next };
+    }),
+  /** Límite de FPS (30|60), persistido. */
+  setFpsLimit: (v) => {
+    const next = v === 30 ? 30 : 60;
+    savePref("f3d.fps", String(next));
+    set({ fpsLimit: next });
+  },  toggleStats: () =>
     set((s) =>
       s.phase === "playing" || s.phase === "paused"
         ? { showStats: !s.showStats }
@@ -340,3 +367,6 @@ export const useMatchStore = create((set, get) => ({
   getTimeScale: () => MATCH_TIME_SCALE,
   getDurationOptions: () => DURATION_OPTIONS,
 }));
+
+/** DPR por preset de calidad (Fase 9). */
+export const GFX_DPR = { baja: [1, 1], media: [1, 1.25], alta: [1, 1.75] };

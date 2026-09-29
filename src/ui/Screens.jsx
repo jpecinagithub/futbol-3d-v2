@@ -6,6 +6,7 @@ import { TEAMS, TeamCrest } from "../data/teams";
 import { assignSpots } from "../game/formations";
 import { DIFFICULTY_DESC } from "../game/difficulty";
 import { DRILLS } from "../training/drills";
+import { OptionsPanel } from "./Options";
 import { uiClick } from "../audio/audioEngine";
 
 export function MainMenu() {
@@ -16,6 +17,7 @@ export function MainMenu() {
       <p className="game-subtitle">Estadio Aurora · 11 contra 11 · 100 % original</p>
       <button className="btn" onClick={() => { try { uiClick(); } catch { /* nada */ } setPhase("select"); }}>Jugar partido</button>
       <button className="btn btn-secondary" onClick={() => { try { uiClick(); } catch { /* nada */ } setPhase("drills"); }}>Entrenamiento</button>
+      <button className="btn btn-secondary" onClick={() => { try { uiClick(); } catch { /* nada */ } setPhase("options"); }}>Opciones</button>
       <p className="hint" style={{ marginTop: 24 }}>
         Mueve con IJKL, WASD o las flechas · Cambia el esquema en Pausa → Controles
       </p>
@@ -228,6 +230,23 @@ export function DrillsScreen() {
             <span className="drill-item-hint">{d.hint}</span>
           </button>
         ))}
+      </div>
+      <div>
+        <button className="btn btn-secondary" onClick={() => setPhase("menu")}>Atrás</button>
+      </div>
+    </div>
+  );
+}
+
+/** Pantalla de opciones (Fase 9): mismo panel que en la pausa. */
+export function OptionsScreen() {
+  const setPhase = useMatchStore((s) => s.setPhase);
+  return (
+    <div className="screen">
+      <h2>OPCIONES</h2>
+      <p className="hint">Todo se guarda automáticamente en este navegador</p>
+      <div className="options-sheet">
+        <OptionsPanel />
       </div>
       <div>
         <button className="btn btn-secondary" onClick={() => setPhase("menu")}>Atrás</button>

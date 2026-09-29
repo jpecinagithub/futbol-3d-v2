@@ -164,6 +164,8 @@ export function registerFoul(engine, f = {}) {
   const rec = {
     id: foulSeq,
     t: engine.time,
+    // Fase 9: minuto de partido para el historial de eventos.
+    minute: Math.floor(engine.matchTime / 60) + 1,
     by,
     byUid: by.uid,
     byName: by.data.name,

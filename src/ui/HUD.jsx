@@ -8,6 +8,7 @@ import { useMatchStore, CAMERA_LABEL } from "../stores/useMatchStore";
 import { TeamCrest } from "../data/teams";
 import { StatsTable } from "./StatsTable";
 import { Radar } from "./Radar";
+import { OptionsPanel, ConfirmButton, HistoryPanel } from "./Options";
 import {
   BIND_ACTIONS, ACTION_LABEL, SCHEMES, SCHEME_LABEL,
   resolveBindings, keyLabel,
@@ -393,13 +394,14 @@ function SubstitutionPanel() {
   );
 }
 
-// ---------- Menú de pausa con pestañas ----------
+// ---------- Menú de pausa con pestañas (Fase 9: opciones, historial,
+// reinicio limpio y salidas con confirmación) ----------
 export function PauseMenu() {
-  const { resume, quitToMenu } = useMatchStore();
+  const { resume, quitToMenu, startMatch, quitDrill, retryDrill } = useMatchStore();
   const difficulty = useMatchStore((s) => s.difficulty);
   const setDifficulty = useMatchStore((s) => s.setDifficulty);
   const drillId = useMatchStore((s) => s.drillId);
-  const [tab, setTab] = useState("controles"); // controles | sonido | stats | cambios
+  const [tab, setTab] = useState("controles"); // controles | sonido | opciones | historial | stats | cambios
   return (
     <div className="overlay">
       <h2>PAUSA</h2>
@@ -432,6 +434,18 @@ export function PauseMenu() {
           Sonido
         </button>
         <button
+          className={`duration-btn${tab === "opciones" ? " active" : ""}`}
+          onClick={() => setTab("opciones")}
+        >
+          Opciones
+        </button>
+        <button
+          className={`duration-btn${tab === "historial" ? " active" : ""}`}
+          onClick={() => setTab("historial")}
+        >
+          Historial
+        </button>
+        <button
           className={`duration-btn${tab === "stats" ? " active" : ""}`}
           onClick={() => setTab("stats")}
         >
@@ -446,11 +460,25 @@ export function PauseMenu() {
       </div>
       {tab === "controles" && <ControlsTable />}
       {tab === "sonido" && <SoundPanel />}
+      {tab === "opciones" && <OptionsPanel />}
+      {tab === "historial" && <HistoryPanel />}
       {tab === "stats" && <StatsTable />}
       {tab === "cambios" && <SubstitutionPanel />}
       <div>
         <button className="btn" onClick={resume}>Continuar</button>
-        <button className="btn btn-secondary" onClick={quitToMenu}>Salir al menú</button>
+        {!drillId && (
+          <ConfirmButton onConfirm={startMatch} armText="¿Reiniciar el partido?">
+            Reiniciar
+          </ConfirmButton>
+        )}
+        {drillId && (
+          <ConfirmButton onConfirm={retryDrill} armText="¿Repetir el ejercicio?">
+            Repetir
+          </ConfirmButton>
+        )}
+        <ConfirmButton onConfirm={drillId ? quitDrill : quitToMenu} armText="¿Abandonar?">
+          Salir al menú
+        </ConfirmButton>
       </div>
     </div>
   );

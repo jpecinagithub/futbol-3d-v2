@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { useMatchStore } from "./stores/useMatchStore";
 import { Match } from "./game/Match";
-import { MainMenu, TeamSelect, VersusScreen, LineupsScreen, DrillsScreen } from "./ui/Screens";
+import { MainMenu, TeamSelect, VersusScreen, LineupsScreen, DrillsScreen, OptionsScreen } from "./ui/Screens";
 import { TrainingOverlay } from "./training/Training";
 import {
   HUD,
@@ -61,6 +61,7 @@ export default function App() {
       {phase === "versus" && <VersusScreen />}
       {phase === "lineups" && <LineupsScreen />}
       {phase === "drills" && <DrillsScreen />}
+      {phase === "options" && <OptionsScreen />}
 
       {/* matchId: la "Revancha" remonta el partido con un motor limpio */}
       {IN_MATCH.includes(phase) && <Match key={matchId} />}

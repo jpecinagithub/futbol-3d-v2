@@ -9,13 +9,12 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useMatchStore } from "../stores/useMatchStore";
+import { useMatchStore, GFX_DPR } from "../stores/useMatchStore";
 import { createMatch, stepEngine, kickoff, getControlled, substitutePlayer } from "./engine";
 import { createInputState, attachKeyboard, detachKeyboard, pollFrameInput, gameKeyCodes } from "./input";
 import { processActions } from "./actions";import { FIXED_DT, FIELD, BALL } from "./constants";
 import { predictPassTarget } from "./passing";
 import { predictSwitchTarget } from "./playerSwitch";
-import { clamp } from "../utils/math";
 import { Field } from "../stadium/Field";
 import { Stadium } from "../stadium/Stadium";
 import { Ball } from "../ball/Ball";
@@ -467,11 +466,29 @@ function DeadBallAim({ engine }) {
   );
 }
 
+// ---------- Limitador de FPS (Fase 9): con frameloop="never" avanza la
+// escena a intervalos fijos (30 Hz) en vez de a cada refresco.
+function FrameLimiter({ fps }) {
+  const advance = useThree((s) => s.advance);
+  useEffect(() => {
+    const id = setInterval(() => {
+      try {
+        advance(performance.now());
+      } catch { /* nada */ }
+    }, 1000 / fps);
+    return () => clearInterval(id);
+  }, [advance, fps]);
+  return null;
+}
+
 // ---------- Escena completa ----------
 export function Match() {
   const homeTeam = useMatchStore((s) => s.getHomeTeam());
   const awayTeam = useMatchStore((s) => s.getAwayTeam());
   const phase = useMatchStore((s) => s.phase);
+  const gfxQuality = useMatchStore((s) => s.gfxQuality);
+  const shadowsOn = useMatchStore((s) => s.shadowsOn);
+  const fpsLimit = useMatchStore((s) => s.fpsLimit);
 
   const engine = useMemo(
     () => createMatch(homeTeam, awayTeam),
@@ -544,6 +561,12 @@ export function Match() {
           const st = useMatchStore.getState();
           st.bumpSub(side);
           st.setNotice(`Cambio: sale ${r.out}, entra ${r.in}`);
+          // Fase 9: acta para el historial de eventos.
+          engine.subLog = engine.subLog || [];
+          engine.subLog.push({
+            minute: Math.floor(engine.matchTime / 60) + 1,
+            side, out: r.out, in: r.in,
+          });
         }
         return r;
       },
@@ -553,8 +576,12 @@ export function Match() {
 
   return (
     <Canvas
-      shadows
-      dpr={[1, 1.75]}
+      // Fase 9: la calidad se aplica remontando SOLO el Canvas (el motor
+      // mutable sobrevive: no se pierde ni el partido ni la repetición).
+      key={`gfx-${gfxQuality}-${shadowsOn ? "sh" : "nosh"}-${fpsLimit}`}
+      shadows={shadowsOn}
+      dpr={GFX_DPR[gfxQuality] || GFX_DPR.alta}
+      frameloop={fpsLimit === 30 ? "never" : "always"}
       camera={{ fov: 50, near: 0.5, far: 600, position: [0, 31, 47] }}
       gl={{ antialias: true }}
       onCreated={({ scene, camera }) => { window.__scene3d = scene; window.__camera3d = camera; }}
@@ -578,6 +605,7 @@ export function Match() {
       <GoalCelebration engine={engine} />
       <GoalConfetti engine={engine} />
       {phase === "replay" && <ReplayPlayer engine={engine} />}
+      {fpsLimit === 30 && <FrameLimiter fps={30} />}
       <TrainingScript engine={engine} />
       <TrainingMarker />
       <BroadcastCamera engine={engine} />
