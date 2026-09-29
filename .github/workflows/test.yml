@@ -7,6 +7,7 @@ on:
 jobs:
   fast:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -17,7 +18,8 @@ jobs:
       - run: npm run lint
       - uses: browser-actions/setup-chrome@v2
         id: setup-chrome
-      - run: npm test
+      - name: Run full browser test suite
+        run: npm run test:full
         env:
           CHROMIUM_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
       - run: npm run build
