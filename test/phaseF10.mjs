@@ -136,48 +136,82 @@ try {
   if (!(ball.radius === 0.17 && ball.saved === "1.5")) throw new Error("balón mal: " + JSON.stringify(ball));
   console.log("balón visual: OK");
 
-  // Cambio automático al recuperar.
+  // PIVOT: conserva el balón al correr y sigue el pase; la ayuda opcional
+  // continúa cambiando al compañero que recupera del rival.
   await ev(() => {
     const st = window.__store.getState();
     if (!st.assistSwitch) st.toggleA11y("assistSwitch");
   });
   const auto = await ev(async () => {
-    const { engine, stepEngine } = window.__match;
-    const { kickoff } = await import("/src/game/engine.js");
+    const live = window.__match.engine;
+    const { stepEngine } = window.__match;
+    const { createMatch, getControlled, kickoff } = await import("/src/game/engine.js");
+    const { doGroundPass } = await import("/src/game/passing.js");
+    const DT = 1 / 60;
+
+    // 1. Carrera larga sin rivales: el microtoque no puede soltar el balón.
+    const runEngine = createMatch(live.homeTeam, live.awayTeam);
+    kickoff(runEngine);
+    runEngine.training = true;
+    const runner = getControlled(runEngine);
+    runner.x = -20; runner.z = 0; runner.hasBall = true; runner.touchTimer = 0;
+    runEngine.ball.x = runner.x + 0.45; runEngine.ball.z = 0; runEngine.ball.y = 0.22;
+    for (const p of runEngine.players) {
+      if (p === runner) continue;
+      p.x = 35; p.z = p.side === "home" ? 30 : -30; p.moveTarget = null;
+    }
+    let maxGap = 0;
+    for (let i = 0; i < 300; i++) {
+      stepEngine(runEngine, DT, { x: 1, z: 0, sprint: true }, {});
+      maxGap = Math.max(maxGap, Math.hypot(runEngine.ball.x - runner.x, runEngine.ball.z - runner.z));
+    }
+    const keptWhileRunning = runner.hasBall;
+
+    // 2. Pase real del PIVOT: el receptor toma el control al instante.
+    const engine = createMatch(live.homeTeam, live.awayTeam);
     kickoff(engine);
     engine.training = true;
-    const initialUid = engine.controlledUid;
-    const mate = engine.players.find((p) => p.side === "home" && !p.controlled && p.role !== "GK");
-    const passer = engine.players.find((p) => p.side === "home" && p.uid !== mate.uid && p.uid !== initialUid);
-    const rival = engine.players.find((p) => p.side === "away" && p.role !== "GK");
+    engine.assistSwitch = true;
+    const pivot = getControlled(engine);
+    const mate = engine.players.find((p) => p.side === pivot.side && !p.controlled && p.role !== "GK");
+    for (const p of engine.players) p.hasBall = false;
+    pivot.hasBall = true;
+    engine.ball.x = pivot.x + 0.45; engine.ball.z = pivot.z; engine.ball.y = 0.22;
+    doGroundPass(engine, pivot, { x: mate.x - pivot.x, z: mate.z - pivot.z }, mate, { followPivot: true });
+    const followedPass = engine.controlledUid === mate.uid && mate.controlled && !pivot.controlled;
 
-    const feedBall = (lastTouch) => {
+    // 3. Una recuperación cuyo último toque fue rival mantiene la ayuda.
+    const recoverer = engine.players.find(
+      (p) => p.side === mate.side && !p.controlled && p.role !== "GK"
+    );
+    const rival = engine.players.find((p) => p.side !== mate.side && p.role !== "GK");
+
+    const feedBall = (target, lastTouch) => {
       for (const p of engine.players) p.hasBall = false;
-      mate.hasBall = false;
-      mate.x = -30; mate.z = 20; mate.vx = 0; mate.vz = 0; mate.facing = 0;
+      target.x = -30; target.z = 20; target.vx = 0; target.vz = 0; target.facing = 0;
       const b = engine.ball;
-      b.x = mate.x + 0.6; b.z = mate.z; b.y = 0.22;
+      b.x = target.x + 0.6; b.z = target.z; b.y = 0.22;
       b.vx = -1.2; b.vy = 0; b.vz = 0;
       b.lastTouch = lastTouch; b.touchCooldown = 0;
     };
-
-    // Un pase de un compañero no es una recuperación y no debe cambiar.
-    engine.passTarget = mate.uid;
-    feedBall(passer.uid);
-    const DT = 1 / 60;
-    for (let i = 0; i < 40 && !mate.hasBall; i++) stepEngine(engine, DT, { x: 0, z: 0 }, {});
-    const stayedOnPass = engine.controlledUid === initialUid;
-
-    // Una recepción cuyo último toque fue rival sí es una recuperación.
-    for (const p of engine.players) p.hasBall = false;
     engine.passTarget = null;
-    feedBall(rival.uid);
-    for (let i = 0; i < 40 && !mate.hasBall; i++) stepEngine(engine, DT, { x: 0, z: 0 }, {});
-    return { stayedOnPass, hasBall: mate.hasBall, controlled: engine.controlledUid === mate.uid };
+    feedBall(recoverer, rival.uid);
+    for (let i = 0; i < 40 && !recoverer.hasBall; i++) stepEngine(engine, DT, { x: 0, z: 0 }, {});
+    return {
+      keptWhileRunning,
+      maxGap: +maxGap.toFixed(2),
+      followedPass,
+      recovered: recoverer.hasBall,
+      recoveryControlled: engine.controlledUid === recoverer.uid,
+    };
   });
-  console.log("auto-switch:", JSON.stringify(auto));
-  if (!(auto.stayedOnPass && auto.hasBall && auto.controlled))
-    throw new Error("el cambio automático no distingue pase/recuperación");
+  console.log("PIVOT:", JSON.stringify(auto));
+  if (!auto.keptWhileRunning || auto.maxGap > 1.75)
+    throw new Error("el PIVOT pierde el balón al conducir: " + JSON.stringify(auto));
+  if (!auto.followedPass)
+    throw new Error("el PIVOT no siguió al receptor del pase");
+  if (!auto.recovered || !auto.recoveryControlled)
+    throw new Error("la ayuda de recuperación dejó de funcionar");
   await ev(() => window.__store.getState().toggleA11y("assistSwitch"));
 
   // Vibración sin lanzar + intensidad baja.

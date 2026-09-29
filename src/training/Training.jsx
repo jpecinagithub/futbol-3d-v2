@@ -85,7 +85,14 @@ export function TrainingOverlay() {
       }
       // Auxiliares para el check.
       const a = aux.current;
-      if (engine.passTarget && engine.ball.lastTouch === engine.controlledUid) {
+      const passTarget = engine.players.find((p) => p.uid === engine.passTarget);
+      const passer = engine.players.find((p) => p.uid === engine.ball.lastTouch);
+      // Tras un pase del PIVOT el control ya pertenece al receptor. Aceptamos
+      // ambos extremos de esa transición para que el ejercicio cuente el pase
+      // ejecutado por el usuario antes y después del relevo automático.
+      const pivotPass = passTarget && passer && passTarget.side === passer.side
+        && (passTarget.controlled || passer.controlled);
+      if (pivotPass) {
         if (!a.lastPass || a.lastPass.uid !== engine.passTarget || engine.time - a.lastPass.t > 3) {
           a.lastPass = { uid: engine.passTarget, t: engine.time };
           a.passes = (a.passes || 0) + 1;

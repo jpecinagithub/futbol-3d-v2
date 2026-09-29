@@ -90,9 +90,16 @@ try {
   console.log("bombeado vy0:", lobVy);
   if (!(lobVy > 4)) throw new Error("el bombeado no se elevó");
   await giveBall();
-  await page.keyboard.press("c");
-  await page.waitForTimeout(800);
-  const thru = await ev(() => !!window.__match.engine.passTarget);
+  const thru = await ev(async () => {
+    const { engine } = window.__match;
+    const { doThroughBall } = await import("/src/game/passing.js");
+    const c = engine.players.find((p) => p.controlled);
+    const mate = engine.players.find((p) => p.side === c.side && p !== c && p.role !== "GK");
+    const atk = c.isHome ? 1 : -1;
+    mate.x = c.x + atk * 10; mate.z = c.z; mate.vx = 0; mate.vz = 0;
+    doThroughBall(engine, c, false, { followPivot: true });
+    return !!engine.passTarget && engine.controlledUid !== c.uid;
+  });
   if (!thru) throw new Error("el hueco no buscó receptor");
   console.log("hueco: OK");
 

@@ -91,7 +91,7 @@ export function processActions(engine, fin, dt) {
         } else {
           // Toque directo (IJKL contextual, mando o reasignado): pase tenso
           // si se corre (Fase 4).
-          doGroundPass(engine, ctrl, fin.move, null, { driven: fin.sprint });
+          doGroundPass(engine, ctrl, fin.move, null, { driven: fin.sprint, followPivot: true });
         }
         break;
       case "passUp": {
@@ -102,6 +102,7 @@ export function processActions(engine, fin, dt) {
           doGroundPass(engine, ctrl, fin.move, null, {
             powerMult: 1 + pc.t * 0.75,
             driven: fin.sprint,
+            followPivot: true,
           });
         }
         break;
@@ -112,7 +113,7 @@ export function processActions(engine, fin, dt) {
           engine.charge.chip = true;
           break;
         }
-        if (hasBall) doLobbedPass(engine, ctrl, fin.move);
+        if (hasBall) doLobbedPass(engine, ctrl, fin.move, { followPivot: true });
         break;
       case "through":
         // Fase 4: C/Y durante una carga de tiro = vaselina.
@@ -120,10 +121,10 @@ export function processActions(engine, fin, dt) {
           engine.charge.chip = true;
           break;
         }
-        if (hasBall) doThroughBall(engine, ctrl);
+        if (hasBall) doThroughBall(engine, ctrl, false, { followPivot: true });
         break;
       case "cross":
-        if (hasBall) doCross(engine, ctrl);
+        if (hasBall) doCross(engine, ctrl, { followPivot: true });
         break;
       case "shootDown":
         if (hasBall) startShotCharge(engine, ctrl, fin.move);
@@ -156,7 +157,7 @@ export function processActions(engine, fin, dt) {
             engine.charge.driven = engine.charge.driven || fin.sprint;
             releaseShot(engine);
           } else if (engine.actionDownHadBall) {
-            doGroundPass(engine, ctrl, fin.move, null, { driven: fin.sprint });
+            doGroundPass(engine, ctrl, fin.move, null, { driven: fin.sprint, followPivot: true });
           }
         }
         engine.actionDownHadBall = false;

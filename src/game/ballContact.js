@@ -160,6 +160,28 @@ function bodyBlock(b, p, dx, dz, d) {
   }
 }
 
+/**
+ * Mantiene el balón en la zancada del PIVOT cuando un microtoque propio se
+ * separa demasiado. No concede inmunidad frente a acciones rivales: una
+ * entrada limpia o una falta eliminan `hasBall` explícitamente antes del
+ * siguiente paso y, por tanto, no pasan por esta corrección.
+ */
+function securePivotBall(engine, p) {
+  const b = engine.ball;
+  const sp = Math.hypot(p.vx, p.vz);
+  const a = sp > 0.35 ? Math.atan2(p.vz, p.vx) : p.facing;
+  b.x = p.x + Math.cos(a) * 0.5;
+  b.z = p.z + Math.sin(a) * 0.5;
+  b.y = BALL.radius;
+  b.vx = p.vx * 0.72;
+  b.vz = p.vz * 0.72;
+  b.vy = 0;
+  b.spin *= 0.3;
+  b.lastTouch = p.uid;
+  b.touchCooldown = 0.1;
+  p.touchTimer = Math.min(p.touchTimer, 0.12);
+}
+
 /** Disputa suave: desvía el balón del poseedor sin barrida. Débil a
  *  propósito: el dueño del balón no lo pierde con facilidad; el balón
  *  queda cerca para que pueda recuperarlo. No se usa contra el usuario
@@ -233,11 +255,16 @@ function resolveTackle(engine, t) {
 export function ballPlayerContact(engine, dt) {
   const b = engine.ball;
 
-  // El poseedor pierde el balón si se escapa
+  // El poseedor IA puede perder un control largo. El PIVOT conserva la
+  // conducción: solo pierde por una acción explícita (pase/tiro), entrada,
+  // falta o reanudación reglamentaria.
   for (const p of engine.players) {
     if (!p.hasBall) continue;
     const d = Math.hypot(p.x - b.x, p.z - b.z);
-    if (d > 1.7 || Math.hypot(b.vx, b.vz) > 12 || b.y > 1.4) p.hasBall = false;
+    const escaped = d > 1.7 || Math.hypot(b.vx, b.vz) > 12 || b.y > 1.4;
+    if (!escaped) continue;
+    if (p.controlled) securePivotBall(engine, p);
+    else p.hasBall = false;
   }
   if (engine.passTargetT > 0) {
     engine.passTargetT -= dt;
@@ -326,7 +353,11 @@ export function ballPlayerContact(engine, dt) {
       // (la separación entre jugadores es 0.7 m y el balón va a los pies),
       // pero sin el robo a distancia de antes. No se aplica al usuario ni
       // con protección de primer toque.
-      if (poss && p.side !== poss.side && !poss.controlled && !(poss.guardT > 0) && ballSp < 4 && d < 0.6 && p.pokeCd <= 0) {
+      // Un cuerpo pasivo no desprende el balón del PIVOT. Las entradas se
+      // resuelven arriba y conservan plenamente el robo limpio o la falta.
+      if (poss && poss.controlled) {
+        continue;
+      } else if (poss && p.side !== poss.side && !(poss.guardT > 0) && ballSp < 4 && d < 0.6 && p.pokeCd <= 0) {
         pokeBall(engine, p, poss);
       } else {
         bodyBlock(b, p, dx, dz, d);

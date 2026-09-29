@@ -45,12 +45,27 @@ function showPassFx(engine, x, z, dx, dz, len) {
   engine.passFx = { x, z, dx, dz, len, t: 0.4 };
 }
 
-function afterKick(engine, p, animTime = 0.26) {
+function afterKick(engine, p, animTime = 0.26, followPivot = false) {
   p.hasBall = false;
   p.kickCooldown = 0.35;
   p.touchTimer = 0.3;
   p.anim.action = "kick";
   p.anim.timer = animTime;
+  // PIVOT: al ejecutar un pase dirigido, el usuario toma inmediatamente el
+  // control del receptor para poder continuar la jugada y atacar el espacio.
+  // Las entradas, tiros y despejes sin receptor no pasan por este relevo.
+  if (followPivot && p.controlled && engine.passTarget) {
+    const receiver = engine.players.find(
+      (q) => q.uid === engine.passTarget && q.side === p.side && !q.sentOff
+    );
+    if (receiver && receiver !== p) {
+      p.controlled = false;
+      receiver.controlled = true;
+      receiver.moveTarget = null;
+      engine.controlledUid = receiver.uid;
+      engine.charge = null;
+    }
+  }
   try { playPass(0.5); } catch { /* sin audio */ }
 }
 
@@ -137,14 +152,14 @@ export function doGroundPass(engine, p, move, forcedMate = null, opts = {}) {
   const fx = Math.cos(a), fz = Math.sin(a);
   kickBall(b, fx, fz, speed, 0, (p.data.passing - 70) * 0.008, p.uid);
   showPassFx(engine, p.x, p.z, fx, fz, Math.min(14, Math.hypot(tx - p.x, tz - p.z)));
-  afterKick(engine, p);
+  afterKick(engine, p, 0.26, !!opts.followPivot);
   // Fase D: snapshot de fuera de juego (exento si nace de un saque exento).
   snapshotPass(engine, p, mate, { exempt: !!engine.restartExempt });
 }
 
 /** Pase elevado / bombeado (Fase 4, tecla X): por encima de la defensa al
  *  compañero del cono frontal, con parábola alta para que baje manso. */
-export function doLobbedPass(engine, p, move) {
+export function doLobbedPass(engine, p, move, opts = {}) {
   const b = engine.ball;
   const mate = predictPassTarget(engine, p, move);
   const rng = engine.rng;
@@ -169,14 +184,14 @@ export function doLobbedPass(engine, p, move) {
   const a = Math.atan2(tz - p.z, tx - p.x) + passErrorAngle(engine, p, d);
   kickBall(b, Math.cos(a), Math.sin(a), hSpeed, vy, (rng() - 0.5) * 1.4, p.uid);
   showPassFx(engine, p.x, p.z, Math.cos(a), Math.sin(a), Math.min(14, d));
-  afterKick(engine, p, 0.3);
+  afterKick(engine, p, 0.3, !!opts.followPivot);
   snapshotPass(engine, p, mate, { exempt: !!engine.restartExempt });
 }
 
 /** Pase al hueco: al espacio por delante del que mejor desmarque tenga.
  * @param {boolean} avoidOffside - la IA evita lanzar a un receptor que
  *        estaría en fuera de juego obvio (el usuario conserva el riesgo). */
-export function doThroughBall(engine, p, avoidOffside = false) {
+export function doThroughBall(engine, p, avoidOffside = false, opts = {}) {
   const b = engine.ball;
   const atk = p.isHome ? 1 : -1;
   const mates = engine.players.filter(
@@ -224,13 +239,13 @@ export function doThroughBall(engine, p, avoidOffside = false) {
   const fx = Math.cos(a), fz = Math.sin(a);
   kickBall(b, fx, fz, speed, 0.4, (p.data.passing - 70) * 0.01, p.uid);
   showPassFx(engine, p.x, p.z, fx, fz, Math.min(16, d));
-  afterKick(engine, p);
+  afterKick(engine, p, 0.26, !!opts.followPivot);
   // Fase D: snapshot de fuera de juego (exento si nace de un saque exento).
   snapshotPass(engine, p, best, { exempt: !!engine.restartExempt });
 }
 
 /** Centro / pase alto: parábola hacia el área rival buscando rematadores. */
-export function doCross(engine, p) {
+export function doCross(engine, p, opts = {}) {
   const b = engine.ball;
   const atk = p.isHome ? 1 : -1;
   const gx = atk * FIELD.halfLength;
@@ -263,7 +278,7 @@ export function doCross(engine, p) {
   const a = Math.atan2(tz - p.z, tx - p.x) + passErrorAngle(engine, p, d) * 0.7;
   kickBall(b, Math.cos(a), Math.sin(a), hSpeed, vy, (rng() - 0.5) * 1.2, p.uid);
   showPassFx(engine, p.x, p.z, Math.cos(a), Math.sin(a), Math.min(16, d));
-  afterKick(engine, p, 0.3);
+  afterKick(engine, p, 0.3, !!opts.followPivot);
   // Fase D: snapshot de fuera de juego (exento si nace de un saque exento).
   snapshotPass(engine, p, best, { exempt: !!engine.restartExempt });
 }
