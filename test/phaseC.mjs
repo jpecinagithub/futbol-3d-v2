@@ -34,8 +34,12 @@ await jsClick("button", "Ver alineaciones"); await page.waitForTimeout(400);
 await jsClick("button", "¡A jugar!"); await page.waitForTimeout(1500);
 
 const res = await page.evaluate(async () => {
-  const { engine, stepEngine } = window.__match;
+  const { stepEngine } = window.__match;
   const eng = await import("/src/game/engine.js");
+  // Motor nuevo: evita que los frames transcurridos durante la navegación
+  // consuman RNG o alteren posiciones antes de la simulación medida.
+  const live = window.__match.engine;
+  const engine = eng.createMatch(live.homeTeam, live.awayTeam);
   window.__AI_DEBUG = true; // ejercita el volcado de estados para el debug
   const input = { x: 0, z: 0 }; // controlado quieto: partido 100 % IA
   const DT = 1 / 60;
@@ -51,6 +55,7 @@ const res = await page.evaluate(async () => {
     let completed = 0;
     let pendingPass = null; // {until, side}
     let goals = 0;
+    let minCarrierGoalDist = Infinity, carrierShotZoneTicks = 0;
     let needKickoff = false;
     let dispSum = 0, dispN = 0;
     let crowdSum = 0, crowdN = 0, crowdMax = 0;
@@ -74,6 +79,12 @@ const res = await page.evaluate(async () => {
       }
       let poss = null;
       for (const p of engine.players) if (p.hasBall) { poss = p; break; }
+      if (poss) {
+        const gx = (poss.isHome ? 1 : -1) * 52.5;
+        const dg = Math.hypot(gx - poss.x, poss.z);
+        minCarrierGoalDist = Math.min(minCarrierGoalDist, dg);
+        if (dg < 28 && Math.abs(poss.z) < 20) carrierShotZoneTicks++;
+      }
       if (pendingPass && poss && poss.side === pendingPass.side && poss.role !== "GK"
           && engine.time < pendingPass.until) {
         completed++; pendingPass = null;
@@ -148,6 +159,8 @@ const res = await page.evaluate(async () => {
     engine._aiChaseAll = false;
     return {
       seconds, passes, completed, shots, goals,
+      minCarrierGoalDist: Number.isFinite(minCarrierGoalDist) ? +minCarrierGoalDist.toFixed(2) : null,
+      carrierShotZoneS: +(carrierShotZoneTicks / 60).toFixed(2),
       disp: dispN ? +(dispSum / dispN).toFixed(2) : 0,
       crowd: crowdN ? +(crowdSum / crowdN).toFixed(2) : 0,
       crowdMax,
@@ -206,4 +219,24 @@ console.log("RESULT:", JSON.stringify(res, null, 1));
 await page.screenshot({ path: "test/shots/shot_final.png" });
 console.log("consoleErrors:", JSON.stringify(errors));
 await browser.close();
-if (errors.length) process.exitCode = 2;
+const failures = [];
+if (res.main.ballDeadlock) failures.push(`balón bloqueado: ${res.main.deadlockInfo}`);
+if (res.main.passes < 5 || res.main.completed < 2) {
+  failures.push(`circulación insuficiente (${res.main.completed}/${res.main.passes} pases)`);
+}
+if (res.main.shots < 1) failures.push("la IA no generó tiros");
+if (!(res.main.disp > res.baseline.disp && res.main.crowd < res.baseline.crowd)) {
+  failures.push("la IA colectiva no mejora la estructura respecto a todos-al-balón");
+}
+if (res.main.states.length < 8 || res.main.phases.length < 4) {
+  failures.push("faltan estados o fases colectivas durante la simulación");
+}
+if (!res.controlled.aiUndefined || res.controlled.aiActive || !res.controlled.moveTargetNull || res.controlled.moved > 1.5) {
+  failures.push("la IA tomó control del jugador del usuario");
+}
+if (!(res.gkTest.disp > 0.5) || !res.gkTest.states.some((s) => /GK_(DIVE|SAVE|CATCH|RUSH_OUT)/.test(s))) {
+  failures.push("el portero no reaccionó al tiro dirigido");
+}
+if (errors.length) failures.push(`${errors.length} errores de consola`);
+if (failures.length) throw new Error(`FASE C: ${failures.join("; ")}`);
+console.log("FASE C OK");

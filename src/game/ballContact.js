@@ -248,6 +248,23 @@ export function ballPlayerContact(engine, dt) {
   for (const p of engine.players) {
     if (p.hasBall) { poss = p; break; }
   }
+  // Desempate para un balón casi parado atrapado entre dos cuerpos. La
+  // separación de jugadores puede dejar a ambos a ~1 m: demasiado lejos del
+  // radio normal (0,78 m), aunque visualmente uno ya haya llegado. Elegimos
+  // solo al más cercano para evitar que dos jugadores lo controlen en el
+  // mismo tick. No amplía intercepciones ni controles de balones en marcha.
+  let looseCollector = null;
+  if (!poss && b.y < 0.3 && Math.hypot(b.vx, b.vz) < 0.4) {
+    let nearest = 1.1;
+    for (const p of engine.players) {
+      if (p.sentOff || (b.lastTouch === p.uid && b.touchCooldown > 0)) continue;
+      const d = Math.hypot(b.x - p.x, b.z - p.z);
+      if (d < nearest) {
+        nearest = d;
+        looseCollector = p;
+      }
+    }
+  }
   const kickerSide = (() => {
     const k = engine.players.find((q) => q.uid === b.lastTouch);
     return k ? k.side : null;
@@ -284,7 +301,7 @@ export function ballPlayerContact(engine, dt) {
       p.role === "GK" && p.ai && p.ai.state === "GK_DIVE";
     const blockR = divingGk ? 1.15 : BODY_R;
 
-    if (b.y < 1.25 && ballSp <= controlLimit(p, isTarget) && d < CONTACT_R) {
+    if (b.y < 1.25 && ballSp <= controlLimit(p, isTarget) && (d < CONTACT_R || p === looseCollector)) {
       // Posesión real: si alguien es dueño del balón y este va manso, nadie
       // se lo lleva por simple proximidad; solo cabe disputarlo con el poke
       // a menos de 0,6 m (o una entrada). Sin dueño, control normal.

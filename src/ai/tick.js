@@ -294,7 +294,10 @@ function bestPassOption(engine, p, atk) {
 }
 
 function tryShootAI(engine, p, time, atk, gx, distGoal, pressure) {
-  const zoneOk = distGoal < 13 || (distGoal < 24 && Math.abs(p.z) < 18);
+  // Acepta media distancia realista: la IA colectiva suele progresar hasta
+  // 24–26 m y antes el corte estricto en 24 m dejaba ataques completos sin
+  // un solo remate.
+  const zoneOk = distGoal < 13 || (distGoal < 28 && Math.abs(p.z) < 20);
   if (!zoneOk) return false;
   if (time - p.ai.lastShotT < 3) return false;
   const q = p.data.shooting / 100;
@@ -302,12 +305,12 @@ function tryShootAI(engine, p, time, atk, gx, distGoal, pressure) {
   if (pressure < 1.5) prob *= 1.1;
   else if (pressure < 3) prob *= 0.6;
   else prob *= 0.35;
+  if (distGoal < 26 && Math.abs(p.z) < 18) prob = Math.max(prob, 0.5);
   if (distGoal < 11) prob += 0.3;
   // Cerca de portería, tirar es casi obligatorio (antes prob*0.35 hacía que
   // el portador dudara eternamente en zona de remate).
   if (distGoal < 9) prob = Math.max(prob, 0.9);
   if (engine.rng() > prob * 0.8) return false;
-  // Apunta al palo largo (contrario al lado donde está el portero).
   // Apunta al palo largo (contrario al lado donde está el portero).
   const gk = engine.players.find((q2) => q2.side !== p.side && q2.role === "GK");
   const cz = gk && gk.z >= 0 ? -2.9 : 2.9;
