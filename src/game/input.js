@@ -95,6 +95,8 @@ export function createInputState() {
     padPrev: [],   // botones del gamepad en el frame anterior
     padSeen: -999, // último frame con actividad de gamepad
     keySeen: -999, // último frame con actividad de teclado
+    rsArmed: true, // stick derecho listo (se desarma al disparar el flick)
+    rsT: -999,     // último frame con flick de stick derecho
     frame: 0,
   };
 }
@@ -195,10 +197,14 @@ function pollGamepad(st, deadzone, sensitivity) {
   if (prev[1] && !b[1]) out.events.push("shootUp"); // B soltado
   if (edge(4)) out.events.push("switch");     // LB = cambio de jugador
   // Stick derecho (Fase 4): golpe seco = cambiar al compañero en esa
-  // dirección (con cooldown para no ciclar sin control).
+  // dirección. Con REARME por posición: hay que volver al centro (<0,35)
+  // antes del siguiente flick; si no, un stick con drift cambiaría de
+  // jugador solo cada pocos frames. El cooldown evita el doble-flick.
   const rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
   const rmag = Math.hypot(rx, ry);
-  if (rmag > 0.7 && st.frame - (st.rsT || -999) > 24) {
+  if (rmag < 0.35) st.rsArmed = true;
+  if (rmag > 0.7 && st.rsArmed !== false && st.frame - (st.rsT || -999) > 24) {
+    st.rsArmed = false;
     st.rsT = st.frame;
     out.events.push("switch");
     out.switchMove = { x: rx / rmag, z: ry / rmag };

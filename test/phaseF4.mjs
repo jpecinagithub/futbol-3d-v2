@@ -210,6 +210,34 @@ try {
   console.log("stick derecho:", JSON.stringify(rs));
   if (rs.before === rs.after) throw new Error("el stick derecho no cambió de jugador");
 
+  // 8b. Drift del stick derecho: mantenido en 0.8 NO repite cambios (rearme).
+  const drift = await ev(async () => {
+    const { createInputState, pollFrameInput } = await import("/src/game/input.js");
+    const st = window.__store.getState();
+    const btns = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+    const orig = navigator.getGamepads;
+    navigator.getGamepads = () => [{ connected: true, buttons: btns, axes: [0, 0, 0.8, 0] }];
+    const input = createInputState();
+    const opts = {
+      scheme: st.controlScheme,
+      overrides: st.bindings,
+      padDeadzone: st.padDeadzone,
+      padSensitivity: st.padSensitivity,
+    };
+    let switches = 0;
+    try {
+      for (let i = 0; i < 200; i++) {
+        const fin = pollFrameInput(input, opts);
+        if (fin.events.includes("switch")) switches++;
+      }
+    } finally {
+      navigator.getGamepads = orig;
+    }
+    return { switches };
+  });
+  console.log("drift stick derecho:", JSON.stringify(drift));
+  if (drift.switches !== 1) throw new Error("el drift repite cambios: " + drift.switches);
+
   // 9. Stamina: drenaje 8,5/s, recupero 6,5/s parado.
   const stam = await ev(async () => {
     const { updateStamina } = await import("/src/game/stamina.js");
