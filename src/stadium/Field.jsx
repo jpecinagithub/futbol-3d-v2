@@ -243,7 +243,7 @@ export function Field() {
       arr.push(<Arc key={"arc" + s} cx={px} cz={0} r={FIELD.penaltyArcR} a0={a0} a1={a1} />);
     }
     return arr;
-  }, [HL, HW]);
+  }, [HL]);
 
   return (
     <group>

@@ -1,3 +1,4 @@
+/* oxlint-disable react/immutability -- puente R3F: sincroniza meshes y estado mutable del motor */
 // Balón de fútbol procedural (diseño propio: esfera blanca con parches oscuros).
 // La malla se coloca cada fotograma desde el motor (sin React state).
 

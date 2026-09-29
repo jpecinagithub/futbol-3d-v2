@@ -50,16 +50,28 @@ try {
     [...(btns || [])].find((b) => b.textContent === "130")?.click();
   });
   await page.waitForTimeout(300);
-  const zoom = await ev(() => ({
-    z: document.getElementById("root").style.zoom,
-    ls: window.localStorage.getItem("f3d.uiScale"),
-  }));
-  if (!(zoom.z === "1.3" && zoom.ls === "1.3")) throw new Error("escala no aplicada: " + JSON.stringify(zoom));
+  const zoom = await ev(() => {
+    const layer = document.querySelector(".ui-scale-layer");
+    const rect = layer?.getBoundingClientRect();
+    const scale = Number(layer?.style.zoom || 1);
+    return {
+      z: layer?.style.zoom,
+      rootZ: document.getElementById("root").style.zoom,
+      viewport: rect ? [Math.round(rect.width * scale), Math.round(rect.height * scale)] : null,
+      expected: [window.innerWidth, window.innerHeight],
+      ls: window.localStorage.getItem("f3d.uiScale"),
+    };
+  });
+  if (!(zoom.z === "1.3" && !zoom.rootZ && zoom.ls === "1.3" &&
+    Math.abs(zoom.viewport[0] - zoom.expected[0]) <= 1 &&
+    Math.abs(zoom.viewport[1] - zoom.expected[1]) <= 1)) {
+    throw new Error("escala no aplicada solo a la UI: " + JSON.stringify(zoom));
+  }
   console.log("escala UI: OK");
 
   // 2. Kits: helper + alternativos + formas del radar.
   const kits = await ev(async () => {
-    const { kitsClash, resolveKits, ALT_KIT } = await import("/src/data/teams/index.jsx");
+    const { kitsClash, resolveKits, ALT_KIT } = await import("/src/data/teams/kits.js");
     const home = { colors: { primary: "#cc0000" } };
     const awaySame = { colors: { primary: "#dd1111" } };
     const awayDiff = { colors: { primary: "#0033cc" } };
@@ -82,6 +94,19 @@ try {
   await jsClick(page, "button", "Atrás");
   await page.waitForTimeout(400);
   await gotoMatch(page, { home: "Real Madrid", away: "Barcelona", duration: "3 min" });
+
+  // La escala de interfaz no debe cambiar el viewport del canvas 3D.
+  const canvasLayout = await ev(() => {
+    const rect = document.querySelector("canvas")?.getBoundingClientRect();
+    return rect ? {
+      size: [Math.round(rect.width), Math.round(rect.height)],
+      expected: [window.innerWidth, window.innerHeight],
+    } : null;
+  });
+  if (!canvasLayout || Math.abs(canvasLayout.size[0] - canvasLayout.expected[0]) > 1 ||
+    Math.abs(canvasLayout.size[1] - canvasLayout.expected[1]) > 1) {
+    throw new Error("la escala UI alteró el canvas: " + JSON.stringify(canvasLayout));
+  }
 
   // Sin sacudida: el tiro no mete kick de cámara.
   await ev(() => window.__store.getState().toggleA11y("reduceMotion"));
@@ -120,18 +145,39 @@ try {
     const { engine, stepEngine } = window.__match;
     const { kickoff } = await import("/src/game/engine.js");
     kickoff(engine);
+    engine.training = true;
+    const initialUid = engine.controlledUid;
     const mate = engine.players.find((p) => p.side === "home" && !p.controlled && p.role !== "GK");
-    for (const p of engine.players) p.hasBall = false;
-    mate.x = -30; mate.z = 20; mate.vx = 0; mate.vz = 0; mate.facing = 0;
-    const b = engine.ball;
-    b.x = mate.x + 0.6; b.z = mate.z; b.y = 0.22; b.vx = -1.2; b.vy = 0; b.vz = 0;
-    b.lastTouch = null; b.touchCooldown = 0;
+    const passer = engine.players.find((p) => p.side === "home" && p.uid !== mate.uid && p.uid !== initialUid);
+    const rival = engine.players.find((p) => p.side === "away" && p.role !== "GK");
+
+    const feedBall = (lastTouch) => {
+      for (const p of engine.players) p.hasBall = false;
+      mate.hasBall = false;
+      mate.x = -30; mate.z = 20; mate.vx = 0; mate.vz = 0; mate.facing = 0;
+      const b = engine.ball;
+      b.x = mate.x + 0.6; b.z = mate.z; b.y = 0.22;
+      b.vx = -1.2; b.vy = 0; b.vz = 0;
+      b.lastTouch = lastTouch; b.touchCooldown = 0;
+    };
+
+    // Un pase de un compañero no es una recuperación y no debe cambiar.
+    engine.passTarget = mate.uid;
+    feedBall(passer.uid);
     const DT = 1 / 60;
     for (let i = 0; i < 40 && !mate.hasBall; i++) stepEngine(engine, DT, { x: 0, z: 0 }, {});
-    return { hasBall: mate.hasBall, controlled: engine.controlledUid === mate.uid };
+    const stayedOnPass = engine.controlledUid === initialUid;
+
+    // Una recepción cuyo último toque fue rival sí es una recuperación.
+    for (const p of engine.players) p.hasBall = false;
+    engine.passTarget = null;
+    feedBall(rival.uid);
+    for (let i = 0; i < 40 && !mate.hasBall; i++) stepEngine(engine, DT, { x: 0, z: 0 }, {});
+    return { stayedOnPass, hasBall: mate.hasBall, controlled: engine.controlledUid === mate.uid };
   });
   console.log("auto-switch:", JSON.stringify(auto));
-  if (!(auto.hasBall && auto.controlled)) throw new Error("el cambio automático no transfirió");
+  if (!(auto.stayedOnPass && auto.hasBall && auto.controlled))
+    throw new Error("el cambio automático no distingue pase/recuperación");
   await ev(() => window.__store.getState().toggleA11y("assistSwitch"));
 
   // Vibración sin lanzar + intensidad baja.

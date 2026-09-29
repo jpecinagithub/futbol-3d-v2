@@ -5,15 +5,17 @@
 //   (phaseB, phaseC, phaseD, phaseE, smokeFullMatch).
 // - Mata el servidor al terminar y propaga el código de salida.
 import { spawn, execFileSync } from "node:child_process";
+import { once } from "node:events";
+import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.PORT ?? 5199);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 const FULL = process.argv.includes("--full");
 
-const server = spawn("npx", ["vite", "--port", String(PORT), "--strictPort"], {
+const viteBin = fileURLToPath(new URL("../node_modules/vite/bin/vite.js", import.meta.url));
+const server = spawn(process.execPath, [viteBin, "--port", String(PORT), "--strictPort"], {
   env: { ...process.env, BASE_URL },
   stdio: ["ignore", "pipe", "pipe"],
-  shell: true,
 });
 
 let _ready = false;
@@ -50,6 +52,16 @@ try {
   code = 1;
   console.error("[test] FALLO");
 } finally {
-  server.kill();
+  if (server.exitCode === null && server.signalCode === null) {
+    server.kill();
+    await Promise.race([
+      once(server, "exit"),
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
+    if (server.exitCode === null && server.signalCode === null) {
+      server.kill("SIGKILL");
+      await once(server, "exit");
+    }
+  }
 }
-process.exit(code);
+process.exitCode = code;

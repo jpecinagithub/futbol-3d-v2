@@ -1,3 +1,4 @@
+/* oxlint-disable react/immutability -- Simulation es el puente al motor mutable de 60 Hz */
 // Escena del partido: monta el motor determinista y lo avanza con paso fijo.
 // - Entrada unificada (teclado + gamepad) vía src/game/input.js.
 // - Las acciones (pases, tiros, entradas, cambios) se procesan una vez por
@@ -28,8 +29,7 @@ import { triggerRumble } from "./feedback";
 
 // ---------- Bucle de simulación ----------
 function Simulation({ engine }) {
-  const inputRef = useRef(null);
-  if (!inputRef.current) inputRef.current = createInputState();
+  const input = useMemo(() => createInputState(), []);
   const acc = useRef(0);
   const lastClockSync = useRef(0);
   const heatRef = useRef(0.22); // emoción del ambiente (Fase E)
@@ -45,15 +45,15 @@ function Simulation({ engine }) {
       ...gameKeyCodes("ijkl", st0.bindings),
       ...gameKeyCodes("wasd", st0.bindings),
     ];
-    attachKeyboard(inputRef.current, codes);
+    attachKeyboard(input, codes);
     // Fase 2: permite vaciar la entrada al salir de la repetición para que
     // ninguna tecla del salto dispare una acción en el saque de centro.
     engine.flushInput = () => {
-      inputRef.current.keys = {};
-      inputRef.current.queue.length = 0;
+      input.keys = {};
+      input.queue.length = 0;
     };
-    return () => detachKeyboard(inputRef.current);
-  }, [engine]);
+    return () => detachKeyboard(input);
+  }, [engine, input]);
 
   useFrame((_, rawDt) => {
     // Fase 11: FPS (media exponencial por segundo, en window.__fps).
@@ -74,7 +74,7 @@ function Simulation({ engine }) {
 
     const dt = Math.min(rawDt, 0.1);
     // Entrada del frame (movimiento + eventos de flanco) y acciones de juego
-    const fin = pollFrameInput(inputRef.current, {
+    const fin = pollFrameInput(input, {
       scheme: st.controlScheme,
       overrides: st.bindings,
       padDeadzone: st.padDeadzone,

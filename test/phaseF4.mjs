@@ -186,14 +186,26 @@ try {
 
   // 8. Stick derecho: golpe seco cambia de jugador.
   const rs = await ev(async () => {
-    const before = window.__match.engine.players.find((p) => p.controlled).uid;
+    const { engine, processActions } = window.__match;
+    const { createInputState, pollFrameInput } = await import("/src/game/input.js");
+    const st = window.__store.getState();
+    const before = engine.players.find((p) => p.controlled).uid;
     const btns = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
     const orig = navigator.getGamepads;
     navigator.getGamepads = () => [{ connected: true, buttons: btns, axes: [0, 0, 0.9, 0.1] }];
-    await new Promise((r) => setTimeout(r, 4000));
-    const after = window.__match.engine.players.find((p) => p.controlled).uid;
+    // Sondeo directo: prueba la ruta real gamepad -> input -> acción sin
+    // depender de que requestAnimationFrame avance en SwiftShader headless.
+    const input = createInputState();
+    const fin = pollFrameInput(input, {
+      scheme: st.controlScheme,
+      overrides: st.bindings,
+      padDeadzone: st.padDeadzone,
+      padSensitivity: st.padSensitivity,
+    });
+    processActions(engine, fin, 1 / 60);
+    const after = engine.players.find((p) => p.controlled).uid;
     navigator.getGamepads = orig;
-    return { before, after };
+    return { before, after, events: fin.events, switchMove: fin.switchMove };
   });
   console.log("stick derecho:", JSON.stringify(rs));
   if (rs.before === rs.after) throw new Error("el stick derecho no cambió de jugador");

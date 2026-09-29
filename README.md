@@ -12,7 +12,8 @@ Stack: **Vite + React (JS) + three + @react-three/fiber + zustand**.
 
 ## Requisitos
 
-- **Node.js 18+** y **npm** (compruébalo con `node --version`).
+- **Node.js 20.19+ o 22.12+** y **npm** (requisito de Vite 8; compruébalo
+  con `node --version`).
 - Un navegador moderno (Chrome / Edge / Firefox) con WebGL.
 
 ## Cómo jugar (Windows / PowerShell)

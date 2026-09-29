@@ -64,6 +64,8 @@ function controlQuality(engine, p) {
 /** Primer toque: perfecto => balón a <0.6 m; malo => despedido 0.5–2 m. */
 function doControl(engine, p) {
   const b = engine.ball;
+  const previousTouch = engine.players.find((q) => q.uid === b.lastTouch);
+  const recoveredFromOpponent = !!previousTouch && previousTouch.side !== p.side;
   // Fase D: el receptor vigilado por fuera de juego la toca => se pita.
   const w = engine.offsideWatch;
   if (w && w.receiverUid === p.uid) {
@@ -98,7 +100,7 @@ function doControl(engine, p) {
     p.guardT = 0.6; // Fase 4: protección tras el primer toque (sin pokes)
     b.lastTouch = p.uid;
     b.touchCooldown = 0.12;
-    maybeAutoSwitch(engine, p);
+    maybeAutoSwitch(engine, p, recoveredFromOpponent);
     // Fase 8: control limpio = recepción amortiguada (no patada).
     p.anim.action = "receive";
     p.anim.timer = 0.3;
@@ -126,10 +128,10 @@ function doControl(engine, p) {
   try { playPass(0.3); } catch { /* sin audio */ }
 }
 
-/** Ayuda opcional (Fase 10): al recuperar, el control pasa al poseedor. */
-function maybeAutoSwitch(engine, p) {
+/** Ayuda opcional (Fase 10): al recuperar del rival, el control pasa al poseedor. */
+function maybeAutoSwitch(engine, p, recoveredFromOpponent = false) {
   try {
-    if (!engine.assistSwitch) return;
+    if (!engine.assistSwitch || !recoveredFromOpponent) return;
   } catch {
     return;
   }
@@ -221,7 +223,7 @@ function resolveTackle(engine, t) {
   b.lastTouch = t.uid;
   b.touchCooldown = 0.15;
   engine.passTarget = null;
-  maybeAutoSwitch(engine, t);
+  maybeAutoSwitch(engine, t, true);
   t.anim.action = "kick";
   t.anim.timer = 0.25;
   try { playTackle(); } catch { /* sin audio */ }

@@ -28,12 +28,17 @@ export default function App() {
   const uiScale = useMatchStore((s) => s.uiScale);
   const highContrast = useMatchStore((s) => s.highContrast);
 
-  // Fase 10: escala de interfaz (zoom estándar) y clase de alto contraste.
-  useEffect(() => {
-    try {
-      document.getElementById("root").style.zoom = String(uiScale);
-    } catch { /* nada */ }
-  }, [uiScale]);
+  // La escala solo afecta al DOM de interfaz. El tamaño inverso conserva el
+  // viewport físico después de aplicar zoom y evita ampliar/recortar el canvas.
+  const uiLayerStyle = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: `${100 / uiScale}%`,
+    height: `${100 / uiScale}%`,
+    zoom: uiScale,
+    zIndex: 10,
+  };
   useEffect(() => {
     try {
       document.getElementById("root").classList.toggle("hc", !!highContrast);
@@ -70,31 +75,34 @@ export default function App() {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {phase === "menu" && <MainMenu />}
-      {phase === "select" && <TeamSelect />}
-      {phase === "versus" && <VersusScreen />}
-      {phase === "lineups" && <LineupsScreen />}
-      {phase === "drills" && <DrillsScreen />}
-      {phase === "options" && <OptionsScreen />}
-
       {/* matchId: la "Revancha" remonta el partido con un motor limpio */}
       {IN_MATCH.includes(phase) && <Match key={matchId} />}
-      {/* Capa para la etiqueta del jugador controlado (proyección manual) */}
-      {IN_MATCH.includes(phase) && (
-        <div id="label-layer" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 15 }} />
-      )}
 
-      {IN_HUD.includes(phase) && <HUD />}
-      {/* Fase 6: la tarjeta del drill sigue visible en gol/repetición para
-        marcar el éxito durante la celebración. */}
-      {(phase === "playing" || phase === "paused" || phase === "goal" || phase === "replay") && <TrainingOverlay />}
-      {(phase === "playing" || phase === "paused") && <NoticeToast />}
-      {(phase === "playing" || phase === "paused") && <StatsOverlay />}
-      {phase === "goal" && <GoalBanner />}
-      {phase === "replay" && <ReplayLabel />}
-      {IN_MATCH.includes(phase) && <ReplayDownloadButton />}
-      {phase === "paused" && <PauseMenu />}
-      {phase === "fulltime" && <FullTimeScreen />}
+      <div className="ui-scale-layer" style={uiLayerStyle}>
+        {phase === "menu" && <MainMenu />}
+        {phase === "select" && <TeamSelect />}
+        {phase === "versus" && <VersusScreen />}
+        {phase === "lineups" && <LineupsScreen />}
+        {phase === "drills" && <DrillsScreen />}
+        {phase === "options" && <OptionsScreen />}
+
+        {/* Capa para la etiqueta del jugador controlado (proyección manual) */}
+        {IN_MATCH.includes(phase) && (
+          <div id="label-layer" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 15 }} />
+        )}
+
+        {IN_HUD.includes(phase) && <HUD />}
+        {/* Fase 6: la tarjeta del drill sigue visible en gol/repetición para
+          marcar el éxito durante la celebración. */}
+        {(phase === "playing" || phase === "paused" || phase === "goal" || phase === "replay") && <TrainingOverlay />}
+        {(phase === "playing" || phase === "paused") && <NoticeToast />}
+        {(phase === "playing" || phase === "paused") && <StatsOverlay />}
+        {phase === "goal" && <GoalBanner />}
+        {phase === "replay" && <ReplayLabel />}
+        {IN_MATCH.includes(phase) && <ReplayDownloadButton />}
+        {phase === "paused" && <PauseMenu />}
+        {phase === "fulltime" && <FullTimeScreen />}
+      </div>
     </div>
   );
 }

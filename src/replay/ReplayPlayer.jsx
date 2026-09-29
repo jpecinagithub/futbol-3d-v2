@@ -1,3 +1,4 @@
+/* oxlint-disable react/immutability -- el replay aplica fotogramas al motor mutable */
 // Reproductor de la repetición automática de gol (Fase E + Fase 2).
 // Se monta solo durante la fase "replay": la simulación está congelada,
 // interpola los fotogramas grabados y mueve la cámara entre 4 ángulos

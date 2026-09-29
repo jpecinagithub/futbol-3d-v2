@@ -190,16 +190,27 @@ try {
   await jsClick(page, ".drill-item", "5 · Defensa");
   await page.waitForFunction(() => window.__match?.phase === "playing", null, { timeout: 30000 });
   await page.waitForTimeout(2500); // setup + guion en marcha
-  await ev(() => {
-    const { engine } = window.__match;
-    const r = engine.players.find((p) => p.uid === engine.drillRunnerUid);
+  const tackle = await ev(async () => {
+    const { engine, processActions } = window.__match;
+    const { stepEngine } = await import("/src/game/engine.js");
     const c = engine.players.find((p) => p.controlled);
-    // Delante del balón (1 m): la entrada llega limpio al toque largo.
-    c.x = r.x - 2.2; c.z = r.z; c.vx = 0; c.vz = 0;
+    const b = engine.ball;
+    // Detrás del balón largo, con el rival suficientemente lejos: entrada
+    // limpia. Avanzamos la física directamente para que la prueba no dependa
+    // de los FPS de SwiftShader en el navegador headless.
+    c.x = b.x - 0.9; c.z = b.z; c.vx = 0; c.vz = 0;
+    c.tackleCd = 0; c.tackleT = 0;
+    processActions(engine, {
+      move: { x: 0, z: 0 }, switchMove: null, sprint: false,
+      events: ["tackleDown"], device: "keyboard",
+    }, 1 / 60);
+    for (let i = 0; i < 20 && !c.hasBall; i++) {
+      stepEngine(engine, 1 / 60, { x: 0, z: 0 }, {});
+    }
+    return { hasBall: c.hasBall, tackleCd: c.tackleCd, lastTouch: b.lastTouch };
   });
-  await page.keyboard.down("a");
-  await page.waitForTimeout(150);
-  await page.keyboard.up("a");
+  console.log("entrada drill 5:", JSON.stringify(tackle));
+  if (!tackle.hasBall) throw new Error("la entrada del drill 5 no recuperó el balón");
   await doneCard();
   console.log("drill 5 (defensa) superado: OK");
 

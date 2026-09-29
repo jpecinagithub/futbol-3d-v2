@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import { useMatchStore } from "../stores/useMatchStore";
-import { resolveKits } from "../data/teams";
+import { resolveKits } from "../data/teams/kits";
 import { FIELD } from "../game/constants";
 
 const W = 152;

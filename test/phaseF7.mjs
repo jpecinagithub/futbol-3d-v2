@@ -88,7 +88,9 @@ try {
     kickoff(engine);
     engine.crowdCd = 0;
     const b = engine.ball;
-    b.x = 20; b.z = 0; b.y = 0.22; b.vx = 14; b.vy = 0; b.vz = 0;
+    // Ya dentro de la zona de peligro: valida la reacción en el siguiente
+    // frame sin depender de que el balón recorra 10 m antes de ser cortado.
+    b.x = 35; b.z = 0; b.y = 0.22; b.vx = 14; b.vy = 0; b.vz = 0;
     b.lastTouch = null;
   });
   await page.waitForFunction(() => window.__match.engine.crowdCd > 0, null, { timeout: 40000, polling: 500 });

@@ -1,3 +1,4 @@
+/* oxlint-disable react/immutability -- la celebración anima el motor congelado deliberadamente */
 // Celebración y confeti de gol (Fase 11: extraído de Match.jsx).
 // Durante la fase "goal" el motor está congelado: estos componentes animan a
 // mano al goleador y lanzan el confeti sobre la portería.

@@ -1,3 +1,4 @@
+/* oxlint-disable react/preserve-manual-memoization -- player.data cambia de forma controlada al sustituir */
 // Humanoide procedural y genérico (sin caras reales ni assets externos).
 // Una sola geometría base reutilizada (cajas/esferas de módulo); las variaciones
 // (altura, complexión, piel, pelo, dorsal) se hacen por escala y materiales.
@@ -8,7 +9,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { createAnimState, posePlayer } from "../animation/animator";
 import { useMatchStore } from "../stores/useMatchStore";
-import { resolveKits } from "../data/teams";
+import { resolveKits } from "../data/teams/kits";
 
 // --- Geometrías base compartidas (una sola instancia para los 22 jugadores) ---
 const GEO = {
