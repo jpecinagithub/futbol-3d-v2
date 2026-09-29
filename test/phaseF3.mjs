@@ -201,9 +201,9 @@ try {
   await page.keyboard.down("a");
   await page.waitForTimeout(150);
   await page.keyboard.up("a");
-  await page.waitForTimeout(1200);
-  const ijklPass = await ev(() => !!window.__match.engine.passTarget);
-  if (!ijklPass) throw new Error("IJKL se rompió tras el cambio de esquema");
+  // Igual que en la reasignación, basta observar la transición: el receptor
+  // puede consumir passTarget antes de una lectura diferida en CI.
+  await page.waitForFunction(() => !!window.__match.engine.passTarget, null, { timeout: 30000 });
   console.log("IJKL intacto: OK");
   const schemeSaved = await ev(() => window.localStorage.getItem("f3d.scheme"));
   if (schemeSaved !== "ijkl") throw new Error("el esquema no persistió");
