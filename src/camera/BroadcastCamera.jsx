@@ -3,9 +3,10 @@
 // bandas, y la cámara lo acompaña solo un 32% en lateral (casi fija, panea).
 // Así el campo llena siempre el encuadre y la cámara nunca acaba encima de
 // la grada cercana dejando medio encuadre a oscuras.
-// Target = balón*0.8 + centroDeAcción*0.2, con interpolación suave.
+// Target = balón*0.92 + centroDeAcción*0.08, con interpolación suave.
 // Zoom dinámico: se aleja con el balón rápido o en contraataques, se acerca
-// en las áreas y a balón parado en zona central. Sin brusquedades.
+// en las áreas y a balón parado en zona central. Una guarda en espacio de
+// pantalla impide que el balón abandone el encuadre en desplazamientos rápidos.
 
 import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -13,7 +14,7 @@ import * as THREE from "three";
 import { actionCenter } from "../game/engine";
 import { DB } from "../game/deadball";
 import { useMatchStore } from "../stores/useMatchStore";
-import { clamp, damp } from "../utils/math";
+import { clamp, lerp } from "../utils/math";
 
 const CAM_OFFSETS = {
   normal: new THREE.Vector3(0, 31, 47),
@@ -25,7 +26,6 @@ const CAM_OFFSETS = {
   far: new THREE.Vector3(0, 44, 66),
 };
 const LATERAL_FOLLOW = { normal: 0.32, near: 0.55, far: 0.22 };
-const LATERAL_CLAMP = { normal: 17, near: 26, far: 22 };
 
 export function BroadcastCamera({ engine }) {
   const { camera } = useThree();
@@ -37,6 +37,7 @@ export function BroadcastCamera({ engine }) {
   // al ciclar Z entre TV/cercana/lejos, sin saltos).
   const offNow = useRef(CAM_OFFSETS.normal.clone());
   const lookNow = useRef(new THREE.Vector3(0, 0, 0));
+  const ballNdc = useRef(new THREE.Vector3());
   const initialized = useRef(false);
 
   useFrame((_, rawDt) => {
@@ -48,21 +49,21 @@ export function BroadcastCamera({ engine }) {
     const b = engine.ball;
     const ac = actionCenter(engine);
 
-    // Punto de interés ponderado: el balón manda (80%) con un ancla al centro
-    // de la acción (20%). En lateral no persigue al balón hasta la banda
-    // (clamp): el balón queda cerca del borde del encuadre, como en la TV.
-    // En cámara cercana el objetivo sí sigue al balón (clamp más amplio).
+    // Punto de interés ponderado: el balón manda. El centro de acción solo
+    // aporta contexto y nunca puede arrastrar el foco lejos de la jugada.
     const key = CAM_OFFSETS[mode] ? mode : "normal";
-    const lx = b.x * 0.8 + ac.x * 0.2;
-    const lz = b.z * 0.8 + ac.z * 0.2;
-    // El target no sale del rectángulo central (la cámara no se pierde)
-    const cx = clamp(lx, -45, 45);
-    const cz = clamp(lz, -LATERAL_CLAMP[key], LATERAL_CLAMP[key]);
+    const lx = b.x * 0.92 + ac.x * 0.08;
+    const lz = b.z * 0.92 + ac.z * 0.08;
+    // El foco puede llegar a las líneas y córners. Los clamps anteriores lo
+    // retenían en el centro y eran una causa directa de balones fuera de plano.
+    const cx = clamp(lx, -56, 56);
+    const cz = clamp(lz, -36, 36);
 
     // Zoom dinámico
     const ballSpeed = Math.hypot(b.vx, b.vz);
     let z = 1;
     z += clamp(ballSpeed / 30, 0, 0.28);          // balón rápido => abrir
+    z += clamp(Math.hypot(b.x - ac.x, b.z - ac.z) / 75, 0, 0.14); // conservar entorno
     const nearBox = Math.abs(b.x) > 34;           // cerca de un área...
     if (nearBox && ballSpeed < 4) z -= 0.16;      // ...y juego pausado => acercar
     if (ballSpeed < 0.6 && Math.abs(b.z) < 14) z -= 0.1; // balón parado en zona central => acercar
@@ -80,15 +81,16 @@ export function BroadcastCamera({ engine }) {
     z = reduceMotion ? clamp(z, 0.9, 1.15) : clamp(z, 0.82, 1.32);
 
     // Suavizado (sin movimientos bruscos; más lento si se reduce movimiento)
-    const kPos = 1 - Math.exp(-(reduceMotion ? 1.6 : 2.6) * dt);
-    target.current.x = damp(target.current.x, cx, kPos);
-    target.current.z = damp(target.current.z, cz, kPos);
-    zoom.current = damp(zoom.current, z, 1 - Math.exp(-2.2 * dt));
+    const followRate = reduceMotion ? 4.5 : 6.5;
+    const kPos = 1 - Math.exp(-followRate * dt);
+    target.current.x = lerp(target.current.x, cx, kPos);
+    target.current.z = lerp(target.current.z, cz, kPos);
+    zoom.current = lerp(zoom.current, z, 1 - Math.exp(-3.5 * dt));
     // Transición suave de modo de cámara (Z): el offset se interpola.
     const kOff = 1 - Math.exp(-3.2 * dt);
-    offNow.current.x = damp(offNow.current.x, CAM_OFFSETS[key].x, kOff);
-    offNow.current.y = damp(offNow.current.y, CAM_OFFSETS[key].y, kOff);
-    offNow.current.z = damp(offNow.current.z, CAM_OFFSETS[key].z, kOff);
+    offNow.current.x = lerp(offNow.current.x, CAM_OFFSETS[key].x, kOff);
+    offNow.current.y = lerp(offNow.current.y, CAM_OFFSETS[key].y, kOff);
+    offNow.current.z = lerp(offNow.current.z, CAM_OFFSETS[key].z, kOff);
 
     const off = offNow.current.clone().multiplyScalar(zoom.current);
     // La cámara acompaña al objetivo en lateral: 32% en broadcast (casi
@@ -109,9 +111,25 @@ export function BroadcastCamera({ engine }) {
     } else {
       camera.position.lerp(desired, kPos);
     }
-    lookNow.current.x = damp(lookNow.current.x, target.current.x, kPos);
-    lookNow.current.z = damp(lookNow.current.z, target.current.z, kPos);
-    camera.lookAt(lookNow.current.x, 0.5, lookNow.current.z);
+    lookNow.current.x = lerp(lookNow.current.x, target.current.x, kPos);
+    lookNow.current.z = lerp(lookNow.current.z, target.current.z, kPos);
+    const lookY = clamp(0.5 + Math.max(0, b.y - 1) * 0.12, 0.5, 2.2);
+    camera.lookAt(lookNow.current.x, lookY, lookNow.current.z);
+
+    // Garantía de visibilidad. Se comprueba el balón ya proyectado por la
+    // cámara de este frame. Si alcanza el borde de seguridad (76% del plano),
+    // se corrige la mirada antes de renderizar. Normalmente no interviene: el
+    // seguimiento rápido de arriba absorbe el movimiento sin tirones.
+    camera.updateMatrixWorld();
+    ballNdc.current.set(b.x, b.y, b.z).project(camera);
+    if (Math.abs(ballNdc.current.x) > 0.76 || Math.abs(ballNdc.current.y) > 0.76) {
+      target.current.x = b.x;
+      target.current.z = b.z;
+      lookNow.current.x = b.x;
+      lookNow.current.z = b.z;
+      camera.lookAt(b.x, clamp(b.y, 0.5, 3), b.z);
+      camera.updateMatrixWorld();
+    }
   });
 
   return null;

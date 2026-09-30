@@ -37,6 +37,37 @@ try {
   const savedCam = await page.evaluate(() => window.localStorage.getItem("f3d.camera"));
   if (savedCam !== "normal") throw new Error("la cámara no persistió: " + savedCam);
 
+  // 2b. El balón permanece dentro de una zona segura en los tres modos,
+  // incluso al saltar entre extremos del campo (simula un pase largo).
+  const cameraFrame = await page.evaluate(async () => {
+    const { engine } = window.__match;
+    const store = window.__store.getState();
+    store.setPhase("paused");
+    const samples = [];
+    const spots = [
+      { x: -52, z: -33, y: 0.22 },
+      { x: 52, z: 33, y: 0.22 },
+      { x: 0, z: 0, y: 9 },
+    ];
+    for (const mode of ["normal", "near", "far"]) {
+      store.setCameraMode(mode);
+      for (const spot of spots) {
+        Object.assign(engine.ball, spot, { vx: 0, vy: 0, vz: 0 });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        const camera = window.__camera3d;
+        camera.updateMatrixWorld();
+        const ndc = camera.position.clone().set(spot.x, spot.y, spot.z).project(camera);
+        samples.push({ mode, spot, x: +ndc.x.toFixed(3), y: +ndc.y.toFixed(3) });
+      }
+    }
+    store.setCameraMode("normal");
+    store.setPhase("playing");
+    return samples;
+  });
+  console.log("encuadre del balón:", JSON.stringify(cameraFrame));
+  if (cameraFrame.some((s) => Math.abs(s.x) > 0.78 || Math.abs(s.y) > 0.78))
+    throw new Error("el balón salió de la zona segura: " + JSON.stringify(cameraFrame));
+
   // 3. R oculta/muestra el radar (persistido)
   await page.keyboard.press("r");
   await page.waitForTimeout(300);
